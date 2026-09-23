@@ -45,7 +45,8 @@
 
 Дана модель описує структуру даних бібліотеки та зв'язки між основними сутностями системи.
 
-*Модель даних (ER-діаграма) додається окремим PDF-файлом.*
+<img width="1427" height="845" alt="image" src="https://github.com/user-attachments/assets/c411e41f-13f0-4f82-b7f6-936309e8ea85" />
+
 
 ### 1.2. UML-діаграма варіантів використання
 
@@ -235,3 +236,11 @@
 7. Нова книга з'являється в каталозі.
 
 ## 3. Проєктування інтерфейсу
+<img width="1365" height="799" alt="image" src="https://github.com/user-attachments/assets/921b0c3b-c8d5-42c8-b200-5344c7de3705" />
+<img width="1365" height="799" alt="image" src="https://github.com/user-attachments/assets/2bebb205-d21f-4ff2-8ae3-73210c4d62a7" />
+<img width="1365" height="799" alt="image" src="https://github.com/user-attachments/assets/9cf91664-7282-470b-a690-e98c5471ba1c" />
+<img width="1365" height="799" alt="image" src="https://github.com/user-attachments/assets/e284fbda-f125-4686-909d-356e979067d4" />
+
+
+
+
