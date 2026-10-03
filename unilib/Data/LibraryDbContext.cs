@@ -52,6 +52,10 @@ public class LibraryDbContext : DbContext
             e.ToTable("role");
             e.Property(r => r.Name).HasMaxLength(50).IsRequired();
             e.HasIndex(r => r.Name).IsUnique();
+            e.HasData(
+                new Role { Id = 1, Name = RoleNames.Admin },
+                new Role { Id = 2, Name = RoleNames.Librarian },
+                new Role { Id = 3, Name = RoleNames.Student });
         });
 
         modelBuilder.Entity<Faculty>(e =>
