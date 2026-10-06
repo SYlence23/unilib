@@ -106,9 +106,7 @@ public class LoginForm : MaterialForm
             if (user != null)
             {
                 Session.CurrentUser = user;
-                System.IO.File.AppendAllText("trace.log", "   - Setting DialogResult.OK\n");
-                this.DialogResult = DialogResult.OK;
-                System.IO.File.AppendAllText("trace.log", "   - DialogResult set\n");
+                this.Close();
             }
             else
             {

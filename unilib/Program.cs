@@ -46,33 +46,31 @@ static class Program
             MessageBox.Show("Failed to seed admin user: " + ex.Message);
         }
         
-        File.AppendAllText("trace.log", "1. Setup done\n");
+        var context = new ApplicationContext();
+
         var loginForm = new LoginForm();
-        File.AppendAllText("trace.log", "2. Showing LoginForm\n");
-        var result = loginForm.ShowDialog();
-        File.AppendAllText("trace.log", $"3. LoginForm closed with result: {result}\n");
+        loginForm.FormClosed += (s, e) => {
+            if (Session.CurrentUser != null)
+            {
+                try
+                {
+                    var mainForm = new MainForm();
+                    mainForm.FormClosed += (s2, e2) => context.ExitThread();
+                    mainForm.Show();
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("Error launching main window: " + ex.Message + "\n" + ex.StackTrace, "Fatal Error");
+                    context.ExitThread();
+                }
+            }
+            else
+            {
+                context.ExitThread();
+            }
+        };
         
-        if (result == DialogResult.OK || Session.CurrentUser != null)
-        {
-            File.AppendAllText("trace.log", $"4. Condition met. Session is null? {Session.CurrentUser == null}\n");
-            try
-            {
-                File.AppendAllText("trace.log", "5. Instantiating MainForm\n");
-                var mainForm = new MainForm();
-                File.AppendAllText("trace.log", "6. Running Application with MainForm\n");
-                Application.Run(mainForm);
-                File.AppendAllText("trace.log", "7. Application Run finished normally\n");
-            }
-            catch (Exception ex)
-            {
-                File.AppendAllText("trace.log", $"EXCEPTION: {ex}\n");
-                MessageBox.Show("Error launching main window: " + ex.Message + "\n" + ex.StackTrace, "Fatal Error");
-            }
-        }
-        else
-        {
-            File.AppendAllText("trace.log", "4. Condition NOT met, exiting app\n");
-            Application.Exit();
-        }
+        loginForm.Show();
+        Application.Run(context);
     }    
 }
