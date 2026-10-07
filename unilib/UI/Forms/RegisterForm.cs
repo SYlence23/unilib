@@ -4,6 +4,7 @@ using System.Windows.Forms;
 using MaterialSkin;
 using MaterialSkin.Controls;
 using unilib.Services;
+using unilib.UI.Controls;
 
 namespace unilib.UI.Forms;
 
@@ -12,7 +13,7 @@ public class RegisterForm : MaterialForm
     private MaterialTextBox txtFirstName;
     private MaterialTextBox txtLastName;
     private MaterialTextBox txtEmail;
-    private MaterialTextBox txtPassword;
+    private PasswordTextBox txtPassword;
     private MaterialTextBox txtStudentId;
     private MaterialButton btnRegister;
     private Label lblError;
@@ -64,7 +65,7 @@ public class RegisterForm : MaterialForm
         txtStudentId = AddField(panel, "Student ID (Optional)", ref y, spacing);
         txtEmail = AddField(panel, "Email", ref y, spacing);
         
-        txtPassword = new MaterialTextBox { Location = new Point(30, y), Size = new Size(260, 50), Hint = "Password", Password = true };
+        txtPassword = new PasswordTextBox { Location = new Point(30, y), Size = new Size(260, 50), Hint = "Password" };
         panel.Controls.Add(txtPassword);
         y += spacing;
 

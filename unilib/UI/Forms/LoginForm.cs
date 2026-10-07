@@ -4,13 +4,14 @@ using System.Windows.Forms;
 using MaterialSkin;
 using MaterialSkin.Controls;
 using unilib.Services;
+using unilib.UI.Controls;
 
 namespace unilib.UI.Forms;
 
 public class LoginForm : MaterialForm
 {
     private MaterialTextBox txtEmail;
-    private MaterialTextBox txtPassword;
+    private PasswordTextBox txtPassword;
     private MaterialButton btnLogin;
     private MaterialButton btnRegisterLink;
     private Label lblError;
@@ -57,7 +58,7 @@ public class LoginForm : MaterialForm
         txtEmail = new MaterialTextBox { Location = new Point(30, 80), Size = new Size(260, 50), Hint = "Email" };
         panel.Controls.Add(txtEmail);
 
-        txtPassword = new MaterialTextBox { Location = new Point(30, 150), Size = new Size(260, 50), Hint = "Password", Password = true };
+        txtPassword = new PasswordTextBox { Location = new Point(30, 150), Size = new Size(260, 50), Hint = "Password" };
         panel.Controls.Add(txtPassword);
 
         lblError = new Label { ForeColor = Theme.Danger, Location = new Point(30, 210), Size = new Size(260, 20), Visible = false, Font = Theme.MainFont(9) };

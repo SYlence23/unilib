@@ -28,8 +28,8 @@ public class MainForm : Form
 
 
         LoadUserContext();
-        // Load default tab
-        btnCatalog.PerformClick();
+        // Load default tab. PerformClick() would do nothing here: the form isn't visible yet.
+        NavButton_Click(btnCatalog, EventArgs.Empty);
     }
 
     private void InitializeComponent()
@@ -116,7 +116,7 @@ public class MainForm : Form
             Padding = new Padding(20)
         };
         this.Controls.Add(panelContentContainer);
-        panelContentContainer.SendToBack(); // Fill goes behind everything
+        panelContentContainer.BringToFront(); // Docked last, so Fill gets only the space the bars leave
     }
 
     private Button btnToggleMenu;

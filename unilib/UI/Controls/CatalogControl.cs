@@ -91,6 +91,7 @@ public class CatalogControl : UserControl
             BackColor = Theme.BackgroundMain
         };
         this.Controls.Add(panelGrid);
+        panelGrid.BringToFront(); // Docked last, so Fill gets only the space below the filters
     }
 
     private async void LoadBooks()
