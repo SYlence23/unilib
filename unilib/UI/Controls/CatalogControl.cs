@@ -79,11 +79,9 @@ public class CatalogControl : UserControl
 
         this.Controls.Add(panelFilters);
 
-        // Margin panel
         var marginPanel = new Panel { Height = 20, Dock = DockStyle.Top, BackColor = Theme.BackgroundMain };
         this.Controls.Add(marginPanel);
 
-        // Grid Panel
         panelGrid = new FlowLayoutPanel
         {
             Dock = DockStyle.Fill,
@@ -124,7 +122,7 @@ public class CatalogControl : UserControl
             Height = 330,
             BackColor = Theme.Surface,
             Margin = new Padding(12),
-            BorderStyle = BorderStyle.FixedSingle // Fake border since we don't paint shadows
+            BorderStyle = BorderStyle.FixedSingle 
         };
 
         var lblTitle = new Label

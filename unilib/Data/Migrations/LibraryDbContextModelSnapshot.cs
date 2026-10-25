@@ -224,10 +224,13 @@ namespace unilib.Data.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("Address")
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)")
-                        .HasColumnName("address");
+                    b.Property<decimal?>("Latitude")
+                        .HasColumnType("numeric(9,6)")
+                        .HasColumnName("latitude");
+
+                    b.Property<decimal?>("Longitude")
+                        .HasColumnType("numeric(9,6)")
+                        .HasColumnName("longitude");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -243,7 +246,14 @@ namespace unilib.Data.Migrations
                     b.HasKey("Id")
                         .HasName("pk_library");
 
-                    b.ToTable("library", (string)null);
+                    b.ToTable("library", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_library_coordinates_pair", "(latitude IS NULL) = (longitude IS NULL)");
+
+                            t.HasCheckConstraint("ck_library_latitude_range", "latitude BETWEEN -90 AND 90");
+
+                            t.HasCheckConstraint("ck_library_longitude_range", "longitude BETWEEN -180 AND 180");
+                        });
                 });
 
             modelBuilder.Entity("unilib.Models.Reservation", b =>

@@ -74,9 +74,17 @@ public class LibraryDbContext : DbContext
 
         modelBuilder.Entity<Library>(e =>
         {
-            e.ToTable("library");
+            // An explicit numeric column type also gives SQLite (tests) numeric affinity,
+            // so the range checks compare numbers there instead of text.
+            e.ToTable("library", t =>
+            {
+                t.HasCheckConstraint("ck_library_latitude_range", "latitude BETWEEN -90 AND 90");
+                t.HasCheckConstraint("ck_library_longitude_range", "longitude BETWEEN -180 AND 180");
+                t.HasCheckConstraint("ck_library_coordinates_pair", "(latitude IS NULL) = (longitude IS NULL)");
+            });
             e.Property(l => l.Name).HasMaxLength(150).IsRequired();
-            e.Property(l => l.Address).HasMaxLength(255);
+            e.Property(l => l.Latitude).HasColumnType("numeric(9,6)");
+            e.Property(l => l.Longitude).HasColumnType("numeric(9,6)");
             e.Property(l => l.Phone).HasMaxLength(20);
         });
 

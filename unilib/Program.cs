@@ -1,4 +1,5 @@
 using System.IO;
+using Microsoft.EntityFrameworkCore;
 using unilib.UI.Forms;
 using unilib.Services;
 
@@ -22,12 +23,12 @@ static class Program
         {
             using (var db = new unilib.Data.LibraryDbContext())
             {
-                db.Database.EnsureCreated();
+                db.Database.Migrate();
             }
         }
         catch (Exception ex)
         {
-            MessageBox.Show("Failed to create database: " + ex.Message);
+            MessageBox.Show("Failed to migrate database: " + ex.Message);
         }
 
         try 

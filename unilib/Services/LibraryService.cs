@@ -22,9 +22,30 @@ public class LibraryService : ServiceBase
         return await db.Libraries.AsNoTracking().SingleOrDefaultAsync(l => l.Id == id);
     }
 
-    public Task<Library> CreateAsync(Library library) => AddEntityAsync(library);
+    public async Task<Library> CreateAsync(Library library)
+    {
+        ValidateCoordinates(library);
+        return await AddEntityAsync(library);
+    }
 
-    public Task UpdateAsync(Library library) => UpdateEntityAsync(library, library.Id);
+    public async Task UpdateAsync(Library library)
+    {
+        ValidateCoordinates(library);
+        await UpdateEntityAsync(library, library.Id);
+    }
 
     public Task DeleteAsync(int id) => DeleteEntityAsync<Library>(id);
+
+    // Same rules as the check constraints on the library table.
+    private static void ValidateCoordinates(Library library)
+    {
+        if ((library.Latitude is null) != (library.Longitude is null))
+            throw new InvalidOperationException("Latitude and longitude must both be set or both be empty.");
+
+        if (library.Latitude is < -90 or > 90)
+            throw new InvalidOperationException($"Latitude must be between -90 and 90, got {library.Latitude}.");
+
+        if (library.Longitude is < -180 or > 180)
+            throw new InvalidOperationException($"Longitude must be between -180 and 180, got {library.Longitude}.");
+    }
 }
