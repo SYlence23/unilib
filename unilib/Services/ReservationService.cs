@@ -4,7 +4,8 @@ using unilib.Models;
 
 namespace unilib.Services;
 
-// Status flow: pending -> active (confirmed) -> completed; pending/active -> cancelled.
+// Status flow: pending -> active (confirmed) -> completed; pending/active -> cancelled;
+// active/cancelled -> pending (decision undone).
 public class ReservationService : ServiceBase
 {
     public ReservationService(Func<LibraryDbContext>? createDb = null) : base(createDb)
@@ -73,6 +74,10 @@ public class ReservationService : ServiceBase
 
     public Task CompleteAsync(int id) =>
         ChangeStatusAsync(id, ReservationStatus.Completed, ReservationStatus.Active);
+
+    // Undoes a librarian's decision: an approved or cancelled request goes back to pending.
+    public Task ReopenAsync(int id) =>
+        ChangeStatusAsync(id, ReservationStatus.Pending, ReservationStatus.Active, ReservationStatus.Cancelled);
 
     public Task DeleteAsync(int id) => DeleteEntityAsync<Reservation>(id);
 

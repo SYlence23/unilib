@@ -1,253 +1,310 @@
-using System;
 using System.Drawing;
-using System.Drawing.Drawing2D;
-using System.Windows.Forms;
+using MaterialSkin.Controls;
+using unilib.Models;
 using unilib.Services;
+using unilib.UI.Forms;
 
 namespace unilib.UI.Controls;
 
+// 02 — Student Profile: the library card, and tabs for bookings, saved books and borrowing limits.
 public class ProfileControl : UserControl
 {
-    private FlowLayoutPanel panelStudentMetadata;
-    private Panel panelIdCard;
-    private TabControl tabControl;
+    private readonly User _user;
+    private CatalogData _data = new();
+
+    private readonly MaterialTabSelector _tabSelector;
+    private readonly TabPage _bookingsPage;
+    private readonly TabPage _savedPage;
+    private readonly TabPage _limitsPage;
 
     public ProfileControl()
     {
-        InitializeComponent();
-        LoadProfile();
-    }
+        _user = Session.CurrentUser!;
+        BackColor = Theme.Ground;
 
-    private void InitializeComponent()
-    {
-        this.BackColor = Theme.BackgroundMain;
-        this.Padding = new Padding(20, 60, 20, 20); // Increased top padding to 60
-
-        var tableLayout = new TableLayoutPanel
+        var left = new FlowLayoutPanel
         {
-            Dock = DockStyle.Fill,
-            ColumnCount = 2,
-            RowCount = 1,
-            BackColor = Theme.BackgroundMain
-        };
-        tableLayout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-        tableLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
-
-        // Left Panel (Metadata & ID Card)
-        panelStudentMetadata = new FlowLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            BackColor = Theme.BackgroundMain,
-            Padding = new Padding(0, 0, 40, 0), // Added right padding to separate from table
+            Dock = DockStyle.Left,
+            Width = 490,
             FlowDirection = FlowDirection.TopDown,
             WrapContents = false,
-            AutoSize = true,
-            AutoSizeMode = AutoSizeMode.GrowAndShrink
+            BackColor = Theme.Ground
         };
+        var header = Ui.PageHeader("02 — Profile", "Student Profile");
+        header.Margin = new Padding(0, 0, 0, 20);
+        left.Controls.Add(header);
+        left.Controls.Add(new IdCardPanel(_user) { Margin = new Padding(0, 0, 0, 20) });
+        var btnPassword = Ui.Button("Change Password", MaterialButton.MaterialButtonType.Outlined);
+        btnPassword.Click += BtnPassword_Click;
+        left.Controls.Add(btnPassword);
 
-        var lblProfile = new Label 
-        { 
-            Text = "Student Profile", 
-            Font = Theme.MainFont(16, FontStyle.Bold), 
-            ForeColor = Theme.TextPrimary, 
-            AutoSize = true, 
-            Margin = new Padding(0, 0, 0, 20) 
-        };
-        panelStudentMetadata.Controls.Add(lblProfile);
-
-        // Digital ID Card
-        panelIdCard = new Panel
+        var right = new Panel { Dock = DockStyle.Fill, BackColor = Theme.Ground, Padding = new Padding(0, 48, 0, 0) };
+        var tabs = new MaterialTabControl { Dock = DockStyle.Fill };
+        _bookingsPage = NewPage("My Bookings");
+        _savedPage = NewPage("Saved Books");
+        _limitsPage = NewPage("Borrowing Limits");
+        tabs.TabPages.AddRange(new[] { _bookingsPage, _savedPage, _limitsPage });
+        _tabSelector = new MaterialTabSelector
         {
-            Width = 450, // Increased width for better scaling
-            Height = 260, // Increased height for better scaling
-            BackColor = Theme.Surface,
-            Margin = new Padding(0, 0, 0, 20)
+            Dock = DockStyle.Top,
+            Height = 48,
+            BaseTabControl = tabs,
+            CharacterCasing = MaterialTabSelector.CustomCharacterCasing.Normal
         };
-        panelIdCard.Paint += PanelIdCard_Paint;
-        panelStudentMetadata.Controls.Add(panelIdCard);
+        right.Controls.Add(tabs);
+        right.Controls.Add(_tabSelector);
 
-        var btnChangePassword = new MaterialSkin.Controls.MaterialButton
-        {
-            Text = "Change Password",
-            Width = 200,
-            Height = 40,
-            Type = MaterialSkin.Controls.MaterialButton.MaterialButtonType.Contained,
-            UseAccentColor = false
-        };
-        panelStudentMetadata.Controls.Add(btnChangePassword);
+        Controls.Add(right);
+        Controls.Add(left);
 
-        tableLayout.Controls.Add(panelStudentMetadata, 0, 0);
-
-        // Right TabControl
-        tabControl = new TabControl
-        {
-            Dock = DockStyle.Fill,
-            Font = Theme.MainFont(11)
-        };
-
-        var tabBookings = new TabPage("My Bookings") { BackColor = Theme.Surface };
-        var tabSaved = new TabPage("Saved Books") { BackColor = Theme.Surface };
-        var tabLimits = new TabPage("Borrowing Limits") { BackColor = Theme.Surface };
-
-        // Bookings DataGridView
-        var dgvBookings = new DataGridView
-        {
-            Dock = DockStyle.Fill,
-            BackgroundColor = Theme.Surface,
-            BorderStyle = BorderStyle.None,
-            ReadOnly = true,
-            AllowUserToAddRows = false,
-            RowHeadersVisible = false,
-            AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
-            EnableHeadersVisualStyles = false,
-            SelectionMode = DataGridViewSelectionMode.FullRowSelect,
-            CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal,
-            GridColor = Theme.Border,
-            RowTemplate = { Height = 40 }
-        };
-        dgvBookings.ColumnHeadersDefaultCellStyle.BackColor = Theme.Surface;
-        dgvBookings.ColumnHeadersDefaultCellStyle.ForeColor = Theme.TextMuted;
-        dgvBookings.ColumnHeadersDefaultCellStyle.Font = Theme.MainFont(11, FontStyle.Bold);
-        dgvBookings.ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.None;
-        dgvBookings.DefaultCellStyle.BackColor = Theme.Surface;
-        dgvBookings.DefaultCellStyle.ForeColor = Theme.TextPrimary;
-        dgvBookings.DefaultCellStyle.Padding = new Padding(10, 0, 10, 0);
-        dgvBookings.AlternatingRowsDefaultCellStyle.BackColor = Theme.BackgroundMain;
-        
-        tabBookings.Controls.Add(dgvBookings);
-
-        tabControl.TabPages.Add(tabBookings);
-        tabControl.TabPages.Add(tabSaved);
-        tabControl.TabPages.Add(tabLimits);
-
-        tableLayout.Controls.Add(tabControl, 1, 0);
-
-        this.Controls.Add(tableLayout);
+        LoadData();
     }
 
-    private void PanelIdCard_Paint(object? sender, PaintEventArgs e)
+    public event EventHandler? BrowseCatalogRequested;
+    public event EventHandler<Book>? LocateRequested;
+
+    private static TabPage NewPage(string text) => new(text) { BackColor = Theme.Ground, Padding = new Padding(0, 12, 0, 0) };
+
+    private async void LoadData()
     {
-        var g = e.Graphics;
-        g.SmoothingMode = SmoothingMode.AntiAlias;
-
-        var rect = new Rectangle(0, 0, panelIdCard.Width, panelIdCard.Height);
-        
-        // Pearlescent light gradient
-        using (var brush = new LinearGradientBrush(rect, Color.White, Theme.SurfaceHover, 45f))
-        {
-            g.FillRoundedRectangle(brush, rect, 12);
-        }
-
-        // Border
-        using (var pen = new Pen(Theme.Border, 1))
-        {
-            g.DrawRoundedRectangle(pen, rect, 12);
-        }
-
-        var fontBold = Theme.MainFont(14, FontStyle.Bold);
-        var fontReg = Theme.MainFont(11);
-        
-        var user = Session.CurrentUser;
-        if (user != null)
-        {
-            // Draw Profile Icon Placeholder (gray rounded rect with silhouette)
-            int photoX = 20;
-            int photoY = 40;
-            int photoSize = 80;
-            using (var photoBrush = new SolidBrush(ColorTranslator.FromHtml("#E2E8F0")))
-            {
-                g.FillRoundedRectangle(photoBrush, new Rectangle(photoX, photoY, photoSize, photoSize), 8);
-            }
-            using (var silBrush = new SolidBrush(ColorTranslator.FromHtml("#94A3B8")))
-            {
-                g.FillEllipse(silBrush, photoX + 25, photoY + 15, 30, 30); // Head
-                g.FillEllipse(silBrush, photoX + 10, photoY + 50, 60, 40); // Body
-            }
-
-            // Draw Texts
-            int textX = 120;
-            g.DrawString("UniLib Student ID", fontBold, new SolidBrush(Theme.Primary), textX, 20);
-            
-            // Draw simulated barcode
-            using (var barcodePen = new Pen(Color.Black, 2))
-            using (var barcodePenThick = new Pen(Color.Black, 4))
-            {
-                int bcX = textX;
-                int bcY = 50;
-                for (int i = 0; i < 40; i++)
-                {
-                    Pen p = (i % 3 == 0 || i % 7 == 0) ? barcodePenThick : barcodePen;
-                    if (i % 5 != 0) g.DrawLine(p, bcX + (i * 4), bcY, bcX + (i * 4), bcY + 30);
-                }
-            }
-
-            g.DrawString($"{user.FirstName} {user.LastName}", fontBold, new SolidBrush(Theme.TextPrimary), textX, 90);
-            g.DrawString($"ID: {user.StudentId ?? "V123"}", fontReg, new SolidBrush(Theme.TextMuted), textX, 115);
-            g.DrawString($"{user.Email}", fontReg, new SolidBrush(Theme.TextMuted), textX, 135);
-        }
-        
-
-    }
-
-    private async void LoadProfile()
-    {
-        if (Session.CurrentUser == null) return;
-        panelIdCard.Invalidate();
-
         try
         {
-            var resService = new ReservationService();
-            var reservations = await resService.GetByUserAsync(Session.CurrentUser.Id);
+            _data = await CatalogData.LoadAsync(_user.Id);
+            if (IsDisposed)
+                return;
+            Render();
+        }
+        catch (Exception ex)
+        {
+            if (IsDisposed)
+                return;
+            Fill(_bookingsPage, Ui.EmptyState("Could not load your bookings.", ex.Message));
+        }
+    }
 
-            var dgv = tabControl.TabPages[0].Controls[0] as DataGridView;
-            if (dgv != null)
+    private void Render()
+    {
+        var saved = _data.Books.Where(b => _data.IsSaved(b.Isbn)).ToList();
+        _bookingsPage.Text = $"My Bookings  {_data.MyReservations.Count}";
+        _savedPage.Text = $"Saved Books  {saved.Count}";
+        _tabSelector.Invalidate();
+
+        Fill(_bookingsPage, _data.MyReservations.Count == 0
+            ? Ui.EmptyState("No bookings yet.", null, "Browse the catalog", () => BrowseCatalogRequested?.Invoke(this, EventArgs.Empty))
+            : BuildBookings());
+        Fill(_savedPage, saved.Count == 0
+            ? Ui.EmptyState("No saved books.", "Use the bookmark on any catalog card to keep it here.")
+            : BuildSaved(saved));
+        Fill(_limitsPage, BuildLimits());
+    }
+
+    private static void Fill(TabPage page, Control content)
+    {
+        while (page.Controls.Count > 0)
+            page.Controls[0].Dispose();
+        content.Dock = DockStyle.Fill;
+        page.Controls.Add(content);
+    }
+
+    private Control BuildBookings()
+    {
+        var list = Ui.Table(("Request", 1f), ("Book Title", 2.6f), ("Reserved", 1.1f), ("Due", 1.1f), ("Status", 1f));
+        foreach (var reservation in _data.MyReservations)
+        {
+            var due = reservation.Status == ReservationStatus.Active
+                ? _data.MyActiveLoans.FirstOrDefault(l => l.BookIsbn == reservation.BookId)?.DueDate.ToString("yyyy-MM-dd")
+                : null;
+            list.Items.Add(new ListViewItem(new[]
             {
-                dgv.DataSource = reservations;
+                Ui.RequestId(reservation.Id), reservation.Book.Title,
+                reservation.ReservationDate.ToString("yyyy-MM-dd"), due ?? "—", Ui.StatusLabel(reservation.Status)
+            }) { Tag = reservation });
+        }
+
+        var btnCancel = Ui.Button("Cancel reservation", MaterialButton.MaterialButtonType.Outlined);
+        var hint = Ui.Text("Pending and approved reservations can be cancelled.", 13, FontStyle.Regular, Theme.TextMuted);
+        Reservation? Selected() => list.SelectedItems.Count > 0 ? (Reservation)list.SelectedItems[0].Tag! : null;
+        void UpdateActions() => btnCancel.Enabled =
+            Selected()?.Status is ReservationStatus.Pending or ReservationStatus.Active;
+
+        list.SelectedIndexChanged += (s, e) => UpdateActions();
+        btnCancel.Click += async (s, e) =>
+        {
+            if (Selected() is not { } reservation || !Confirm(reservation))
+                return;
+            try
+            {
+                await new ReservationService().CancelAsync(reservation.Id);
+                if (IsDisposed)
+                    return;
+                Ui.Toast(this, $"{Ui.RequestId(reservation.Id)} cancelled.");
+                LoadData();
+            }
+            catch (Exception ex)
+            {
+                if (!IsDisposed)
+                    Ui.Toast(this, ex.Message);
+            }
+        };
+        UpdateActions();
+        return WithActions(list, btnCancel, hint);
+    }
+
+    private bool Confirm(Reservation reservation)
+    {
+        var form = FindForm()!;
+        using var dialog = new MaterialDialog(form, "Cancel reservation",
+            $"Cancel {Ui.RequestId(reservation.Id)} for \"{reservation.Book.Title}\"?",
+            "Cancel reservation", true, "Keep it");
+        return dialog.ShowDialog(form) == DialogResult.OK;
+    }
+
+    private Control BuildSaved(List<Book> saved)
+    {
+        var list = Ui.Table(("Title", 2.4f), ("Author", 1.6f), ("Location", 1.8f), ("Availability", 1.1f), ("Status", 0.9f));
+        foreach (var book in saved)
+            list.Items.Add(new ListViewItem(new[]
+            {
+                book.Title, CatalogData.Authors(book), _data.Location(book), _data.AvailabilityLabel(book),
+                _data.IsHeld(book.Isbn) ? "Reserved" : ""
+            }) { Tag = book });
+
+        var btnReserve = Ui.Button("Reserve", MaterialButton.MaterialButtonType.Contained);
+        var btnLocate = Ui.Button("Locate", MaterialButton.MaterialButtonType.Outlined, Glyph.Pin);
+        var btnRemove = Ui.Button("Remove", MaterialButton.MaterialButtonType.Text);
+        Book? Selected() => list.SelectedItems.Count > 0 ? (Book)list.SelectedItems[0].Tag! : null;
+        void UpdateActions()
+        {
+            var book = Selected();
+            btnReserve.Enabled = book != null && !_data.IsHeld(book.Isbn);
+            btnLocate.Enabled = book?.LibraryId != null;
+            btnRemove.Enabled = book != null;
+        }
+
+        list.SelectedIndexChanged += (s, e) => UpdateActions();
+        btnLocate.Click += (s, e) => { if (Selected() is { } book) LocateRequested?.Invoke(this, book); };
+        btnReserve.Click += async (s, e) =>
+        {
+            if (Selected() is not { } book)
+                return;
+            try
+            {
+                var message = await _data.ReserveAsync(_user.Id, book);
+                if (IsDisposed)
+                    return;
+                Ui.Toast(this, message);
+                Render();
+            }
+            catch (Exception ex)
+            {
+                if (!IsDisposed)
+                    Ui.Toast(this, ex.Message);
+            }
+        };
+        btnRemove.Click += async (s, e) =>
+        {
+            if (Selected() is not { } book)
+                return;
+            try
+            {
+                await _data.ToggleSavedAsync(_user.Id, book);
+                if (!IsDisposed)
+                    Render();
+            }
+            catch (Exception ex)
+            {
+                if (!IsDisposed)
+                    Ui.Toast(this, ex.Message);
+            }
+        };
+        UpdateActions();
+        return WithActions(list, btnReserve, btnLocate, btnRemove);
+    }
+
+    private Control BuildLimits()
+    {
+        var grid = new TableLayoutPanel { ColumnCount = 2, RowCount = 2, BackColor = Theme.Ground, Padding = new Padding(0, 8, 0, 0) };
+        grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+        grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+        grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 140));
+        grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 140));
+
+        grid.Controls.Add(new LimitCell("Active loans", _data.MyActiveLoans.Count, LibraryRules.MaxActiveLoans), 0, 0);
+        grid.Controls.Add(new LimitCell("Open reservations", _data.OpenReservations, LibraryRules.MaxOpenReservations), 1, 0);
+        grid.Controls.Add(new LimitCell("Loan period", LibraryRules.LoanPeriodDays, suffix: "days"), 0, 1);
+        grid.Controls.Add(new LimitCell("Renewals per loan", LibraryRules.RenewalsPerLoan), 1, 1);
+        return grid;
+    }
+
+    // A list with a row of action buttons above it.
+    private static Control WithActions(Control list, params Control[] actions)
+    {
+        var panel = new Panel { BackColor = Theme.Ground };
+        var bar = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 52, BackColor = Theme.Ground, WrapContents = false };
+        foreach (var action in actions)
+        {
+            if (action is Label)
+                action.Margin = new Padding(8, 14, 0, 0);
+            bar.Controls.Add(action);
+        }
+        panel.Controls.Add(list);
+        panel.Controls.Add(bar);
+        return panel;
+    }
+
+    private void BtnPassword_Click(object? sender, EventArgs e)
+    {
+        using var dialog = new ChangePasswordForm();
+        if (dialog.ShowDialog(FindForm()) == DialogResult.OK)
+            Ui.Toast(this, "Password updated.");
+    }
+
+    // One figure on the Borrowing Limits tab, with a usage bar when there is a limit.
+    private class LimitCell : Control
+    {
+        private readonly string _label;
+        private readonly int _value;
+        private readonly int? _limit;
+        private readonly string? _suffix;
+
+        public LimitCell(string label, int value, int? limit = null, string? suffix = null)
+        {
+            _label = label;
+            _value = value;
+            _limit = limit;
+            _suffix = suffix;
+            Dock = DockStyle.Fill;
+            Margin = new Padding(0);
+            SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint
+                | ControlStyles.UserPaint | ControlStyles.ResizeRedraw, true);
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            var g = e.Graphics;
+            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
+            g.Clear(Theme.Ground);
+            using var ink = new SolidBrush(Theme.Ink);
+            using var muted = new SolidBrush(Theme.TextMuted);
+            using var rule = new Pen(Theme.Neutral300);
+            g.DrawRectangle(rule, 0, 0, Width - 1, Height - 1);
+
+            g.DrawString(_label.ToUpperInvariant(), Theme.Font(11), muted, 16, 20);
+            var big = Theme.Font(40, FontStyle.Bold);
+            var value = _value.ToString();
+            g.DrawString(value, big, ink, 12, 42);
+            var after = _limit != null ? $"/ {_limit}" : _suffix;
+            if (after != null)
+                g.DrawString(after, Theme.Font(20, FontStyle.Bold), muted, 16 + g.MeasureString(value, big).Width, 60);
+
+            if (_limit is { } limit)
+            {
+                using var track = new SolidBrush(Theme.Neutral300);
+                using var bar = new SolidBrush(Theme.Accent);
+                var width = Width - 32;
+                g.FillRectangle(track, 16, 106, width, 6);
+                g.FillRectangle(bar, 16, 106, width * Math.Min(_value, limit) / limit, 6);
             }
         }
-        catch { }
-    }
-}
-
-public static class GraphicsExtensions
-{
-    public static void FillRoundedRectangle(this Graphics g, Brush brush, Rectangle rect, int radius)
-    {
-        using (GraphicsPath path = GetRoundedRectanglePath(rect, radius))
-        {
-            g.FillPath(brush, path);
-        }
-    }
-
-    public static void DrawRoundedRectangle(this Graphics g, Pen pen, Rectangle rect, int radius)
-    {
-        using (GraphicsPath path = GetRoundedRectanglePath(rect, radius))
-        {
-            g.DrawPath(pen, path);
-        }
-    }
-
-    private static GraphicsPath GetRoundedRectanglePath(Rectangle rect, int radius)
-    {
-        int diameter = radius * 2;
-        Size size = new Size(diameter, diameter);
-        Rectangle arc = new Rectangle(rect.Location, size);
-        GraphicsPath path = new GraphicsPath();
-
-        if (radius == 0)
-        {
-            path.AddRectangle(rect);
-            return path;
-        }
-
-        path.AddArc(arc, 180, 90);
-        arc.X = rect.Right - diameter;
-        path.AddArc(arc, 270, 90);
-        arc.Y = rect.Bottom - diameter;
-        path.AddArc(arc, 0, 90);
-        arc.X = rect.Left;
-        path.AddArc(arc, 90, 90);
-        path.CloseFigure();
-        return path;
     }
 }

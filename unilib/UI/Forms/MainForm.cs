@@ -1,200 +1,179 @@
-using System;
 using System.Drawing;
-using System.Windows.Forms;
-using MaterialSkin;
 using MaterialSkin.Controls;
+using unilib.Models;
 using unilib.Services;
 using unilib.UI.Controls;
 
 namespace unilib.UI.Forms;
 
-public class MainForm : Form
+// The app shell: header, numbered side navigation, the current screen and a status footer.
+public class MainForm : MaterialForm
 {
-    private FlowLayoutPanel panelSidebar;
-    private Panel panelContentContainer;
-    private StatusStrip statusBar;
-    private ToolStripStatusLabel statusUser;
+    private enum Screen { Catalog, Profile, Map, Admin }
 
-    private Button btnCatalog;
-    private Button btnProfile;
-    private Button btnMap;
-    private Button btnAdmin;
+    private readonly Panel _content;
+    private readonly Panel _sidebar;
+    private readonly Dictionary<Screen, NavButton> _nav = new();
+    private Control? _current;
 
     public MainForm()
     {
-        InitializeComponent();
-        
-        // Removed MaterialSkinManager from MainForm to avoid conflicts
+        var user = Session.CurrentUser ?? throw new InvalidOperationException("No user is logged in.");
 
+        Text = "UniLib - Desktop";
+        FormStyle = FormStyles.ActionBar_None;
+        Size = new Size(1440, 900);
+        MinimumSize = new Size(1100, 720);
+        StartPosition = FormStartPosition.CenterScreen;
+        Theme.Apply(this);
+        BackColor = Theme.Ground;
 
-        LoadUserContext();
-        // Load default tab. PerformClick() would do nothing here: the form isn't visible yet.
-        NavButton_Click(btnCatalog, EventArgs.Empty);
+        _content = new Panel { Dock = DockStyle.Fill, BackColor = Theme.Ground, Padding = new Padding(40, 32, 40, 24) };
+        _sidebar = BuildSidebar(user);
+
+        // The last control added is docked first: header and footer span the full width,
+        // the sidebar takes the left of what remains, the screen fills the rest.
+        Controls.Add(_content);
+        Controls.Add(_sidebar);
+        Controls.Add(BuildFooter(user));
+        Controls.Add(BuildHeader(user));
+
+        ShowScreen(Screen.Catalog);
     }
 
-    private void InitializeComponent()
+    // True when the window closed because the user signed out (rather than quitting).
+    public bool SignedOut { get; private set; }
+
+    private Control BuildHeader(User user)
     {
-        this.Text = "UniLib - Desktop";
-        this.Size = new Size(1440, 1024);
-        this.StartPosition = FormStartPosition.CenterScreen;
-        this.BackColor = Theme.BackgroundMain;
+        var header = new Panel { Dock = DockStyle.Top, Height = 60, BackColor = Theme.Ground };
+        header.Controls.Add(Ui.Rule(DockStyle.Bottom));
 
-        // Status Bar
-        statusBar = new StatusStrip();
-        statusBar.BackColor = Theme.SurfaceHover;
-        statusBar.ForeColor = Theme.TextMuted;
-        statusUser = new ToolStripStatusLabel();
-        statusBar.Items.Add(statusUser);
-        this.Controls.Add(statusBar);
+        var btnMenu = new IconButton(Glyph.Menu, "Toggle menu", 58) { Location = new Point(0, 0) };
+        btnMenu.Click += (s, e) => _sidebar.Visible = !_sidebar.Visible;
+        header.Controls.Add(btnMenu);
+        header.Controls.Add(new Panel { BackColor = Theme.Divider, Bounds = new Rectangle(58, 0, 2, 58) });
 
-        // Header Panel
-        var panelHeader = new Panel
+        var brand = Ui.Text("UniLib", 22, FontStyle.Bold);
+        brand.Location = new Point(80, 15);
+        header.Controls.Add(brand);
+
+        var account = new FlowLayoutPanel
         {
-            Height = 60,
-            Dock = DockStyle.Top,
-            BackColor = Theme.Primary
-        };
-
-        btnToggleMenu = new Button
-        {
-            Text = "☰",
-            Font = Theme.MainFont(18, FontStyle.Bold),
-            ForeColor = Color.White,
-            BackColor = Theme.Primary,
-            Width = 60,
-            Dock = DockStyle.Left,
-            FlatStyle = FlatStyle.Flat,
-            Cursor = Cursors.Hand
-        };
-        btnToggleMenu.FlatAppearance.BorderSize = 0;
-        btnToggleMenu.Click += BtnToggleMenu_Click;
-        panelHeader.Controls.Add(btnToggleMenu);
-
-        lblLogo = new Label
-        {
-            Text = "UniLib",
-            Font = Theme.MainFont(20, FontStyle.Bold),
-            ForeColor = Color.White,
             AutoSize = true,
-            Location = new Point(70, 15)
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            WrapContents = false,
+            BackColor = Color.Transparent,
+            Anchor = AnchorStyles.Top | AnchorStyles.Right
         };
-        panelHeader.Controls.Add(lblLogo);
+        var name = Ui.Text($"{user.FirstName} {user.LastName}", 14, FontStyle.Bold);
+        name.Margin = new Padding(0, 10, 12, 0);
+        var role = new Chip(Ui.RoleLabel(user), ChipKind.Outline) { Margin = new Padding(0, 8, 12, 0) };
+        var btnSignOut = Ui.Button("Sign out", MaterialButton.MaterialButtonType.Text, Glyph.LogOut);
+        btnSignOut.Margin = new Padding(0);
+        btnSignOut.Click += (s, e) => SignOut();
+        account.Controls.Add(name);
+        account.Controls.Add(role);
+        account.Controls.Add(btnSignOut);
+        header.Controls.Add(account);
 
-        this.Controls.Add(panelHeader);
+        void PlaceAccount() => account.Location =
+            new Point(header.ClientSize.Width - account.Width - 16, (header.Height - 2 - account.Height) / 2);
+        header.Resize += (s, e) => PlaceAccount();
+        account.SizeChanged += (s, e) => PlaceAccount();
 
-        // Sidebar
-        panelSidebar = new FlowLayoutPanel
-        {
-            Width = 260,
-            Dock = DockStyle.Left,
-            BackColor = Theme.Surface,
-            Padding = new Padding(10, 20, 10, 10),
-            FlowDirection = FlowDirection.TopDown,
-            WrapContents = false
-        };
-
-        // Navigation Buttons
-        btnCatalog = CreateNavButton("Catalog");
-        btnProfile = CreateNavButton("Student Profile");
-        btnMap = CreateNavButton("Campus Map");
-        btnAdmin = CreateNavButton("Admin Control");
-
-        panelSidebar.Controls.Add(btnCatalog);
-        panelSidebar.Controls.Add(btnProfile);
-        panelSidebar.Controls.Add(btnMap);
-        panelSidebar.Controls.Add(btnAdmin);
-
-        this.Controls.Add(panelSidebar);
-        panelSidebar.BringToFront(); // Dock Left above Fill
-        panelHeader.BringToFront();  // Dock Top above Left
-
-        // Content Container
-        panelContentContainer = new Panel
-        {
-            Dock = DockStyle.Fill,
-            BackColor = Theme.BackgroundMain,
-            Padding = new Padding(20)
-        };
-        this.Controls.Add(panelContentContainer);
-        panelContentContainer.BringToFront(); // Docked last, so Fill gets only the space the bars leave
+        Ui.DragsWindow(header);
+        Ui.DragsWindow(brand);
+        return header;
     }
 
-    private Button btnToggleMenu;
-    private Label lblLogo;
-    private bool isMenuExpanded = true;
-
-    private void BtnToggleMenu_Click(object? sender, EventArgs e)
+    private Panel BuildSidebar(User user)
     {
-        isMenuExpanded = !isMenuExpanded;
-        panelSidebar.Visible = isMenuExpanded;
-    }
+        var sidebar = new Panel { Dock = DockStyle.Left, Width = 240, BackColor = Theme.Ground };
 
-    private Button CreateNavButton(string text)
-    {
-        var btn = new Button
+        var items = new List<(Screen Screen, string Number, string Label)>
         {
-            Text = "  " + text,
-            Width = 240,
-            Height = 50,
-            FlatStyle = FlatStyle.Flat,
-            Font = Theme.MainFont(12, FontStyle.Regular),
-            ForeColor = Theme.TextPrimary,
-            BackColor = Theme.Surface,
-            TextAlign = ContentAlignment.MiddleLeft,
-            Cursor = Cursors.Hand,
-            Margin = new Padding(0, 0, 0, 10)
+            (Screen.Catalog, "01", "Catalog"),
+            (Screen.Profile, "02", "Student Profile"),
+            (Screen.Map, "03", "Campus Map")
         };
-        btn.FlatAppearance.BorderSize = 0;
-        btn.Click += NavButton_Click;
-        return btn;
-    }
+        if (Ui.IsStaff(user))
+            items.Add((Screen.Admin, "04", "Admin Control"));
 
-    private void LoadUserContext()
-    {
-        if (Session.CurrentUser != null)
+        // Top-docked controls stack in reverse order of adding, so add the last item first.
+        for (var i = items.Count - 1; i >= 0; i--)
         {
-            statusUser.Text = $"Logged in as: {Session.CurrentUser.FirstName} {Session.CurrentUser.LastName}";
-            // Hide admin button if not admin
-            if (!Session.IsInRole("admin") && !Session.IsInRole("librarian"))
-            {
-                btnAdmin.Visible = false;
-            }
+            var item = items[i];
+            var button = new NavButton(item.Label, item.Number) { Dock = DockStyle.Top, AccessibleName = item.Label };
+            button.Click += (s, e) => ShowScreen(item.Screen);
+            _nav[item.Screen] = button;
+            sidebar.Controls.Add(button);
         }
+        sidebar.Controls.Add(Ui.Rule(DockStyle.Right));
+        return sidebar;
     }
 
-    private void NavButton_Click(object? sender, EventArgs e)
+    private static Control BuildFooter(User user)
     {
-        if (sender is not Button clickedBtn) return;
+        var footer = new Panel { Dock = DockStyle.Bottom, Height = 30, BackColor = Theme.Ground, Padding = new Padding(16, 2, 16, 0) };
+        var left = Ui.Text($"Logged in as: {user.FirstName} {user.LastName}", 12, FontStyle.Regular, Theme.TextMuted);
+        var right = Ui.Text("UniLib - Desktop", 12, FontStyle.Regular, Theme.TextMuted);
+        left.AutoSize = right.AutoSize = false;
+        left.Width = right.Width = 300;
+        left.TextAlign = ContentAlignment.MiddleLeft;
+        right.TextAlign = ContentAlignment.MiddleRight;
+        left.Dock = DockStyle.Left;
+        right.Dock = DockStyle.Right;
+        footer.Controls.Add(left);
+        footer.Controls.Add(right);
+        footer.Controls.Add(Ui.Rule());
+        return footer;
+    }
 
-        // Reset all buttons style
-        foreach (Control ctrl in panelSidebar.Controls)
+    private void ShowScreen(Screen screen, Book? locate = null)
+    {
+        foreach (var (key, button) in _nav)
+            button.Active = key == screen;
+
+        // Requests from inside a screen are deferred: switching disposes that screen,
+        // including the button whose Click is still running.
+        Control view;
+        switch (screen)
         {
-            if (ctrl is Button b)
-            {
-                b.BackColor = Theme.Surface;
-                b.ForeColor = Theme.TextPrimary;
-                b.Font = Theme.MainFont(12, FontStyle.Regular);
-            }
+            case Screen.Profile:
+                var profile = new ProfileControl();
+                profile.BrowseCatalogRequested += (s, e) => BeginInvoke(() => ShowScreen(Screen.Catalog));
+                profile.LocateRequested += (s, book) => BeginInvoke(() => ShowScreen(Screen.Map, book));
+                view = profile;
+                break;
+            case Screen.Map:
+                view = new MapControl(locate);
+                break;
+            case Screen.Admin:
+                view = new AdminControl();
+                break;
+            default:
+                var catalog = new CatalogControl();
+                catalog.LocateRequested += (s, book) => BeginInvoke(() => ShowScreen(Screen.Map, book));
+                view = catalog;
+                break;
         }
 
-        // Set active button style
-        clickedBtn.BackColor = Theme.Primary; // Deep Purple
-        clickedBtn.ForeColor = Color.White;
-        clickedBtn.Font = Theme.MainFont(12, FontStyle.Bold);
-
-        // Switch UserControl based on button
-        panelContentContainer.Controls.Clear();
-        UserControl? uc = null;
-
-        if (clickedBtn == btnCatalog) uc = new CatalogControl();
-        else if (clickedBtn == btnProfile) uc = new ProfileControl();
-        else if (clickedBtn == btnMap) uc = new MapControl();
-        else if (clickedBtn == btnAdmin) uc = new AdminControl();
-
-        if (uc != null)
+        // Each visit builds the screen afresh, so it always shows current data.
+        if (_current != null)
         {
-            uc.Dock = DockStyle.Fill;
-            panelContentContainer.Controls.Add(uc);
+            _content.Controls.Remove(_current);
+            _current.Dispose();
         }
+        view.Dock = DockStyle.Fill;
+        _content.Controls.Add(view);
+        _current = view;
+    }
+
+    private void SignOut()
+    {
+        Session.Logout();
+        SignedOut = true;
+        Close();
     }
 }
