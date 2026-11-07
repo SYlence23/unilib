@@ -9,6 +9,9 @@ namespace unilib.Services;
 // PasswordHasher (salted PBKDF2); plain passwords are never stored.
 public class AuthService : ServiceBase
 {
+    // Password of the seeded admin account. Signing in with it forces a password change.
+    public const string DefaultAdminPassword = "admin123";
+
     private readonly PasswordHasher<User> _hasher = new();
 
     public AuthService(Func<LibraryDbContext>? createDb = null) : base(createDb)

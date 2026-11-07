@@ -151,11 +151,12 @@ public class AddBookForm : MaterialForm
         var newCategory = _newCategory.Text.Trim();
 
         string? error = null;
+        var copies = 0;
         if (title.Length == 0 || authors.Count == 0)
             error = "Title and author are required.";
         else if (isbn.Length != 10 && isbn.Length != 13)
             error = "ISBN must have 10 or 13 digits.";
-        else if (!int.TryParse(_copies.Text.Trim(), out var parsed) || parsed < 0)
+        else if (!int.TryParse(_copies.Text.Trim(), out copies) || copies < 0)
             error = "Copies must be a whole number, 0 or more.";
         else if (SelectedCategory == null && newCategory.Length == 0)
             error = "Choose a category or enter a new one.";
@@ -164,38 +165,19 @@ public class AddBookForm : MaterialForm
             Ui.ShowError(_error, error);
             return;
         }
-        var copies = int.Parse(_copies.Text.Trim());
 
         _btnAdd.Enabled = false;
         try
         {
-            var books = new BookService();
-            if (await books.GetByIsbnAsync(isbn) != null)
-            {
-                Ui.ShowError(_error, "A book with this ISBN is already catalogued.");
-                return;
-            }
-
-            var category = SelectedCategory ?? await new CategoryService().CreateAsync(new Category { Name = newCategory });
-            await books.CreateAsync(new Book
+            // One save for category, book and authors: a failure stores nothing, so retrying is safe.
+            await new BookService().AddWithAuthorsAsync(new Book
             {
                 Isbn = isbn,
                 Title = title,
-                CategoryId = category.Id,
+                CategoryId = SelectedCategory?.Id ?? 0,
                 LibraryId = SelectedLibrary?.Id,
                 Amount = copies
-            });
-
-            var authorService = new AuthorService();
-            var known = await authorService.GetAllAsync();
-            foreach (var (first, last) in authors)
-            {
-                var author = known.FirstOrDefault(a =>
-                    string.Equals(a.FirstName, first, StringComparison.OrdinalIgnoreCase) &&
-                    string.Equals(a.LastName, last, StringComparison.OrdinalIgnoreCase))
-                    ?? await authorService.CreateAsync(new Author { FirstName = first, LastName = last });
-                await books.AddAuthorAsync(isbn, author.Id);
-            }
+            }, SelectedCategory == null ? newCategory : null, authors);
 
             AddedTitle = title;
             DialogResult = DialogResult.OK;

@@ -15,9 +15,11 @@ public class ChangePasswordForm : MaterialForm
     private readonly Label _error;
     private readonly MaterialButton _btnUpdate;
 
-    public ChangePasswordForm()
+    // With currentPassword given (signing in with the default password), the current-password
+    // field is filled in and hidden, and the dialog explains why the change is required.
+    public ChangePasswordForm(string? currentPassword = null)
     {
-        Text = "Change Password";
+        Text = currentPassword == null ? "Change Password" : "Set a New Password";
         FormStyle = FormStyles.ActionBar_48;
         Size = new Size(440, 390);
         Sizable = false;
@@ -41,6 +43,17 @@ public class ChangePasswordForm : MaterialForm
         _confirm = Ui.TextField("Confirm new password", FieldWidth, password: true);
         _error = Ui.ErrorLabel(FieldWidth);
         body.Controls.AddRange(new Control[] { _current, _new, _confirm, _error });
+        if (currentPassword != null)
+        {
+            _current.Text = currentPassword;
+            _current.Visible = false;
+            var notice = Ui.Text("This account still uses the default password. Choose a new one to continue.",
+                13, FontStyle.Regular, Theme.TextMuted);
+            notice.MaximumSize = new Size(FieldWidth, 0);
+            notice.Margin = new Padding(0, 0, 0, 12);
+            body.Controls.Add(notice);
+            body.Controls.SetChildIndex(notice, 0);
+        }
 
         var actions = new FlowLayoutPanel
         {
@@ -74,6 +87,8 @@ public class ChangePasswordForm : MaterialForm
             error = "New password must be at least 6 characters.";
         else if (_new.Text != _confirm.Text)
             error = "Passwords do not match.";
+        else if (_new.Text == _current.Text || _new.Text == AuthService.DefaultAdminPassword)
+            error = "Choose a password different from the current one.";
         if (error != null)
         {
             Ui.ShowError(_error, error);

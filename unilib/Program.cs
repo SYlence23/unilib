@@ -86,20 +86,27 @@ static class Program
         mainForm.Show();
     }
 
-    // Creates the admin account on an empty database and makes sure it has the admin role:
-    // RegisterAsync always creates students, which left the seeded admin without Admin Control.
+    // Makes sure the database has an admin. Once any admin exists this does nothing.
+    // Otherwise it creates admin@unilib.com with the default password (which must be changed
+    // at first login) and gives it the admin role (RegisterAsync always creates students).
+    // An existing admin@unilib.com is promoted only while it still has the default password:
+    // that is the seeded account (older versions created it as a student), not someone who
+    // registered the address with their own password.
     private static void EnsureAdminAccount()
     {
         using var db = new LibraryDbContext();
-        if (!db.Users.Any())
-            new AuthService().RegisterAsync("Admin", "User", AdminEmail, "admin123").GetAwaiter().GetResult();
-
-        var admin = db.Users.SingleOrDefault(u => u.Email == AdminEmail);
         var adminRole = db.Roles.SingleOrDefault(r => r.Name == RoleNames.Admin);
-        if (admin != null && adminRole != null && admin.RoleId != adminRole.Id)
-        {
-            admin.RoleId = adminRole.Id;
-            db.SaveChanges();
-        }
+        if (adminRole == null || db.Users.Any(u => u.RoleId == adminRole.Id))
+            return;
+
+        var auth = new AuthService();
+        if (!db.Users.Any(u => u.Email == AdminEmail))
+            auth.RegisterAsync("Admin", "User", AdminEmail, AuthService.DefaultAdminPassword).GetAwaiter().GetResult();
+        else if (auth.LoginAsync(AdminEmail, AuthService.DefaultAdminPassword).GetAwaiter().GetResult() == null)
+            return;
+
+        var admin = db.Users.Single(u => u.Email == AdminEmail);
+        admin.RoleId = adminRole.Id;
+        db.SaveChanges();
     }
 }

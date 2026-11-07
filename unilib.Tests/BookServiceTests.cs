@@ -71,4 +71,74 @@ public class BookServiceTests : IDisposable
         await _books.RemoveAuthorAsync("222", author.Id);
         Assert.Empty((await _books.GetByIsbnAsync("222"))!.BookAuthors);
     }
+
+    [Fact]
+    public async Task AddWithAuthors_ReusesKnownAuthorAndCreatesNewOnes()
+    {
+        var categoryId = (await new CategoryService(_db.Create).GetAllAsync()).Single().Id;
+
+        await _books.AddWithAuthorsAsync(new Book { Isbn = "333", Title = "Refactoring", CategoryId = categoryId },
+            null, new[] { ("robert", "MARTIN"), ("Martin", "Fowler"), ("Martin", "Fowler") });
+
+        var book = await _books.GetByIsbnAsync("333");
+        Assert.NotNull(book);
+        Assert.Equal(new[] { "Fowler", "Martin" }, book.BookAuthors.Select(ba => ba.Author.LastName).OrderBy(n => n));
+        Assert.Equal(2, (await new AuthorService(_db.Create).GetAllAsync()).Count);
+    }
+
+    [Fact]
+    public async Task AddWithAuthors_NewCategoryName_ReusesExistingIgnoringCase()
+    {
+        await _books.AddWithAuthorsAsync(new Book { Isbn = "333", Title = "SICP" }, " programming ", new[] { ("", "Abelson") });
+
+        Assert.Equal("Programming", (await _books.GetByIsbnAsync("333"))!.Category.Name);
+        Assert.Single(await new CategoryService(_db.Create).GetAllAsync());
+    }
+
+    [Fact]
+    public async Task AddWithAuthors_DuplicateIsbn_StoresNothing()
+    {
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _books.AddWithAuthorsAsync(new Book { Isbn = "111", Title = "Copy" }, "Fiction", new[] { ("Frank", "Herbert") }));
+
+        Assert.Contains("already catalogued", ex.Message);
+        Assert.Single(await new CategoryService(_db.Create).GetAllAsync());
+        Assert.Single(await new AuthorService(_db.Create).GetAllAsync());
+    }
+
+    [Fact]
+    public async Task AddWithAuthors_FailedSave_StoresNoCategoryOrAuthors()
+    {
+        // CategoryId 999 doesn't exist, so the save fails on the foreign key.
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _books.AddWithAuthorsAsync(new Book { Isbn = "444", Title = "Broken", CategoryId = 999 }, null, new[] { ("Frank", "Herbert") }));
+
+        Assert.Null(await _books.GetByIsbnAsync("444"));
+        Assert.Single(await new AuthorService(_db.Create).GetAllAsync());
+    }
+
+    [Fact]
+    public async Task AddWithAuthors_FailedSaveWithNewCategory_StoresNoCategoryAndRetryWorks()
+    {
+        // LibraryId 999 doesn't exist, so the save fails after the new category was prepared.
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _books.AddWithAuthorsAsync(new Book { Isbn = "444", Title = "Dune", LibraryId = 999 }, "Fiction", new[] { ("Frank", "Herbert") }));
+
+        Assert.Single(await new CategoryService(_db.Create).GetAllAsync());
+        Assert.Single(await new AuthorService(_db.Create).GetAllAsync());
+
+        // The original bug: retrying failed on the category's unique name.
+        await _books.AddWithAuthorsAsync(new Book { Isbn = "444", Title = "Dune" }, "Fiction", new[] { ("Frank", "Herbert") });
+        Assert.Equal("Fiction", (await _books.GetByIsbnAsync("444"))!.Category.Name);
+    }
+
+    [Fact]
+    public async Task AddWithAuthors_MatchesCyrillicNamesIgnoringCase()
+    {
+        await _books.AddWithAuthorsAsync(new Book { Isbn = "555", Title = "Кобзар" }, "Поезія", new[] { ("Тарас", "Шевченко") });
+        await _books.AddWithAuthorsAsync(new Book { Isbn = "556", Title = "Гайдамаки" }, "ПОЕЗІЯ", new[] { ("тарас", "шевченко") });
+
+        Assert.Equal(2, (await new CategoryService(_db.Create).GetAllAsync()).Count);
+        Assert.Equal(2, (await new AuthorService(_db.Create).GetAllAsync()).Count);
+    }
 }

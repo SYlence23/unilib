@@ -10,6 +10,7 @@ public class CatalogControl : UserControl
 {
     // Up to this many categories fit as segmented buttons; more use a drop-down.
     private const int MaxSegmentedCategories = 5;
+    private const int GridPageSize = 48;
 
     private readonly User _user;
     private CatalogData _data = new();
@@ -185,13 +186,46 @@ public class CatalogControl : UserControl
         _body.ResumeLayout();
     }
 
+    // Cards are added a page at a time: each card uses about ten window handles,
+    // and Windows caps a process at about 10,000, so a large catalog can't build them all.
     private Control BuildGrid(List<Book> books)
     {
         var grid = new FlowLayoutPanel { AutoScroll = true, BackColor = Theme.Ground };
-        grid.SuspendLayout();
-        foreach (var book in books)
-            grid.Controls.Add(BuildCard(book));
-        grid.ResumeLayout();
+        var shown = 0;
+        var btnMore = Ui.Button("Show more", MaterialButton.MaterialButtonType.Outlined);
+        btnMore.Margin = new Padding(0, 0, 16, 16);
+
+        void ShowNextPage()
+        {
+            // Removing the focused button and re-adding it can make the panel scroll on its own,
+            // so keep the scroll position and move focus to the first new card.
+            var scroll = grid.AutoScrollPosition;
+            grid.SuspendLayout();
+            grid.Controls.Remove(btnMore);
+            Control? firstNew = null;
+            foreach (var book in books.Skip(shown).Take(GridPageSize))
+            {
+                var card = BuildCard(book);
+                firstNew ??= card;
+                grid.Controls.Add(card);
+            }
+            shown = Math.Min(shown + GridPageSize, books.Count);
+            if (shown < books.Count)
+            {
+                btnMore.Text = $"Show more ({books.Count - shown} left)";
+                grid.Controls.Add(btnMore);
+            }
+            grid.ResumeLayout();
+            // AutoScrollPosition reads back negative and is set with positive values.
+            grid.AutoScrollPosition = new Point(-scroll.X, -scroll.Y);
+            if (shown > GridPageSize)
+                firstNew?.SelectNextControl(null, true, true, true, false);
+        }
+
+        btnMore.Click += (s, e) => ShowNextPage();
+        // The button is out of the grid once every card is shown, so the grid won't dispose it.
+        grid.Disposed += (s, e) => btnMore.Dispose();
+        ShowNextPage();
         return grid;
     }
 

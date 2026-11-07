@@ -100,9 +100,12 @@ public class LoginForm : MaterialForm
         btnCreate.Click += (s, e) => ShowRegister();
         view.Controls.Add(btnCreate);
 
+#if DEBUG
+        // Development only: release builds must not show the default admin password.
         var demo = Ui.Text("Demo: admin@unilib.com / admin123", 12, FontStyle.Regular, Theme.TextMuted);
         demo.Margin = new Padding(0, 16, 0, 0);
         view.Controls.Add(demo);
+#endif
         return view;
     }
 
@@ -237,6 +240,18 @@ public class LoginForm : MaterialForm
                 return;
             }
             Session.CurrentUser = user;
+            if (_loginPassword.Text == AuthService.DefaultAdminPassword)
+            {
+                // The default password is public, so it has to be replaced before going further.
+                using var dialog = new ChangePasswordForm(currentPassword: _loginPassword.Text);
+                if (dialog.ShowDialog(this) != DialogResult.OK)
+                {
+                    Session.Logout();
+                    if (!IsDisposed)
+                        Ui.ShowError(_loginError, "Change the default password to continue.");
+                    return;
+                }
+            }
             Close();
         }
         catch (Exception ex)
