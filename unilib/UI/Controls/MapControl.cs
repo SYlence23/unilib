@@ -204,7 +204,7 @@ public class MapControl : UserControl
         }
         _aside.ResumeLayout();
 
-        _libraryAddress.Text = library.Address ?? "Campus library";
+        _libraryAddress.Text = LibraryDetails(library);
         _libraryName.Text = library.Name;
 
         var onShelf = books.Where(b => _data.Shelf(b) == _shelf).Select(b => b.Title).ToList();
@@ -214,6 +214,17 @@ public class MapControl : UserControl
 
         _plan.Occupied = books.Select(b => _data.Shelf(b)!).ToHashSet();
         _plan.Target = _shelf;
+    }
+
+    // Libraries store coordinates instead of an address: "50.450100, 30.523400 · +380 44 000 0000".
+    private static string LibraryDetails(Library library)
+    {
+        var parts = new List<string>();
+        if (library.Latitude is { } lat && library.Longitude is { } lon)
+            parts.Add(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{lat:0.000000}, {lon:0.000000}"));
+        if (!string.IsNullOrWhiteSpace(library.Phone))
+            parts.Add(library.Phone);
+        return parts.Count > 0 ? string.Join(" · ", parts) : "Campus library";
     }
 
     private static Label SectionLabel(string text)
