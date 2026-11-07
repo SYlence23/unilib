@@ -87,5 +87,29 @@ public class AuthService : ServiceBase
         await SaveAsync(db, nameof(User));
     }
 
+    // Makes sure the database has an admin. Once any admin exists this does nothing.
+    // Otherwise it creates the account with DefaultAdminPassword (which must be changed at
+    // first login) and gives it the admin role (RegisterAsync always creates students).
+    // An existing account with this email is promoted only while it still has the default
+    // password: that is the seeded account (older versions created it as a student), not
+    // someone who registered the address with their own password.
+    public async Task EnsureAdminAsync(string email)
+    {
+        email = NormalizeEmail(email);
+        using var db = CreateDb();
+        var adminRole = await db.Roles.SingleOrDefaultAsync(r => r.Name == RoleNames.Admin);
+        if (adminRole == null || await db.Users.AnyAsync(u => u.RoleId == adminRole.Id))
+            return;
+
+        if (!await db.Users.AnyAsync(u => u.Email == email))
+            await RegisterAsync("Admin", "User", email, DefaultAdminPassword);
+        else if (await LoginAsync(email, DefaultAdminPassword) == null)
+            return;
+
+        var admin = await db.Users.SingleAsync(u => u.Email == email);
+        admin.RoleId = adminRole.Id;
+        await SaveAsync(db, nameof(User));
+    }
+
     private static string NormalizeEmail(string email) => email.Trim().ToLowerInvariant();
 }

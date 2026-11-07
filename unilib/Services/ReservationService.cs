@@ -8,8 +8,12 @@ namespace unilib.Services;
 // active/cancelled -> pending (decision undone).
 public class ReservationService : ServiceBase
 {
-    public ReservationService(Func<LibraryDbContext>? createDb = null) : base(createDb)
+    private readonly TimeProvider _time;
+
+    // time: tests pass a fixed clock; the app uses the system clock.
+    public ReservationService(Func<LibraryDbContext>? createDb = null, TimeProvider? time = null) : base(createDb)
     {
+        _time = time ?? TimeProvider.System;
     }
 
     public async Task<List<Reservation>> GetAllAsync()
@@ -57,7 +61,7 @@ public class ReservationService : ServiceBase
         {
             UserId = userId,
             BookId = isbn,
-            ReservationDate = DateOnly.FromDateTime(DateTime.Today),
+            ReservationDate = DateOnly.FromDateTime(_time.GetLocalNow().DateTime),
             Status = ReservationStatus.Pending
         };
 

@@ -1,16 +1,8 @@
+using unilib.Data;
 using unilib.Models;
 using unilib.Services;
 
 namespace unilib.UI;
-
-// Library rules shown to students. Only the open-reservation limit is enforced (when reserving).
-public static class LibraryRules
-{
-    public const int MaxOpenReservations = 3;
-    public const int MaxActiveLoans = 5;
-    public const int LoanPeriodDays = 14;
-    public const int RenewalsPerLoan = 2;
-}
 
 // The database has no shelf positions yet, so books are shelved by category:
 // every category gets one shelf (A1..A6, then B1..B6) in each library.
@@ -30,6 +22,8 @@ public sealed class CatalogData
 {
     private Dictionary<string, int> _onLoan = new();
     private HashSet<string> _saved = new();
+    // Null uses the app database; tests pass their own.
+    private Func<LibraryDbContext>? _createDb;
 
     public List<Book> Books { get; private set; } = new();
     public List<Category> Categories { get; private set; } = new();
@@ -37,18 +31,19 @@ public sealed class CatalogData
     public List<Reservation> MyReservations { get; private set; } = new();
     public List<UserBook> MyActiveLoans { get; private set; } = new();
 
-    public static async Task<CatalogData> LoadAsync(int userId)
+    public static async Task<CatalogData> LoadAsync(int userId, Func<LibraryDbContext>? createDb = null)
     {
-        var books = new BookService().GetAllAsync();
-        var categories = new CategoryService().GetAllAsync();
-        var libraries = new LibraryService().GetAllAsync();
-        var activeLoans = new LoanService().GetActiveAsync();
-        var reservations = new ReservationService().GetByUserAsync(userId);
-        var favorites = new FavoriteService().GetByUserAsync(userId);
+        var books = new BookService(createDb).GetAllAsync();
+        var categories = new CategoryService(createDb).GetAllAsync();
+        var libraries = new LibraryService(createDb).GetAllAsync();
+        var activeLoans = new LoanService(createDb).GetActiveAsync();
+        var reservations = new ReservationService(createDb).GetByUserAsync(userId);
+        var favorites = new FavoriteService(createDb).GetByUserAsync(userId);
         await Task.WhenAll(books, categories, libraries, activeLoans, reservations, favorites);
 
         return new CatalogData
         {
+            _createDb = createDb,
             Books = books.Result,
             Categories = categories.Result,
             Libraries = libraries.Result,
@@ -90,7 +85,7 @@ public sealed class CatalogData
         if (OpenReservations >= LibraryRules.MaxOpenReservations)
             return $"Reservation limit reached ({LibraryRules.MaxOpenReservations} open requests).";
 
-        var reservation = await new ReservationService().CreateAsync(userId, book.Isbn);
+        var reservation = await new ReservationService(_createDb).CreateAsync(userId, book.Isbn);
         reservation.Book = book;
         MyReservations.Insert(0, reservation);
         return $"Book reserved! {Ui.RequestId(reservation.Id)} is pending approval.";
@@ -99,7 +94,7 @@ public sealed class CatalogData
     // Adds the book to the user's saved books, or removes it. Returns whether it is saved now.
     public async Task<bool> ToggleSavedAsync(int userId, Book book)
     {
-        var favorites = new FavoriteService();
+        var favorites = new FavoriteService(_createDb);
         var save = !IsSaved(book.Isbn);
         if (save)
             await favorites.AddAsync(userId, book.Isbn);
