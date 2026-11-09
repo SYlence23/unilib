@@ -65,7 +65,7 @@ public sealed class CatalogData
 
     // The user already has a pending or approved reservation for this book.
     public bool IsHeld(string isbn) => MyReservations.Any(r => r.BookId == isbn
-        && r.Status is ReservationStatus.Pending or ReservationStatus.Active);
+        && ReservationStatus.IsOpen(r.Status));
 
     public bool IsSaved(string isbn) => _saved.Contains(isbn);
 
@@ -75,7 +75,8 @@ public sealed class CatalogData
         else _saved.Remove(isbn);
     }
 
-    public int OpenReservations => MyReservations.Count(r => r.Status == ReservationStatus.Pending);
+    // Pending and approved requests both count toward the limit, as in IsHeld.
+    public int OpenReservations => MyReservations.Count(r => ReservationStatus.IsOpen(r.Status));
 
     // Creates a pending reservation and returns the message to show the user.
     public async Task<string> ReserveAsync(int userId, Book book)
@@ -83,7 +84,7 @@ public sealed class CatalogData
         if (IsHeld(book.Isbn))
             return "You have already reserved this book.";
         if (OpenReservations >= LibraryRules.MaxOpenReservations)
-            return $"Reservation limit reached ({LibraryRules.MaxOpenReservations} open requests).";
+            return ReservationService.LimitReachedMessage;
 
         var reservation = await new ReservationService(_createDb).CreateAsync(userId, book.Isbn);
         reservation.Book = book;

@@ -8,6 +8,9 @@ namespace unilib.Services;
 // active/cancelled -> pending (decision undone).
 public class ReservationService : ServiceBase
 {
+    public static readonly string LimitReachedMessage =
+        $"Reservation limit reached ({LibraryRules.MaxOpenReservations} open requests).";
+
     private readonly TimeProvider _time;
 
     // time: tests pass a fixed clock; the app uses the system clock.
@@ -56,6 +59,10 @@ public class ReservationService : ServiceBase
             throw NotFound<User>(userId);
         if (!await db.Books.AnyAsync(b => b.Isbn == isbn))
             throw NotFound<Book>(isbn);
+        var open = await db.Reservations.CountAsync(r => r.UserId == userId
+            && (r.Status == ReservationStatus.Pending || r.Status == ReservationStatus.Active));
+        if (open >= LibraryRules.MaxOpenReservations)
+            throw new InvalidOperationException(LimitReachedMessage);
 
         var reservation = new Reservation
         {

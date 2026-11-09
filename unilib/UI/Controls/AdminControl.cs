@@ -139,21 +139,37 @@ public class AdminControl : UserControl
         }
         list.SelectedIndexChanged += (s, e) => UpdateActions();
 
-        var service = new ReservationService();
-        btnApprove.Click += (s, e) => Decide(Selected(), service.ConfirmAsync, "approved");
-        btnReject.Click += (s, e) => Decide(Selected(), service.CancelAsync, "rejected");
-        btnReopen.Click += (s, e) => Decide(Selected(), service.ReopenAsync, "moved back to pending");
-        UpdateActions();
-
         var panel = new Panel { BackColor = Theme.Ground };
         var actions = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 52, BackColor = Theme.Ground, WrapContents = false };
         actions.Controls.AddRange(new Control[] { btnApprove, btnReject, btnReopen, hint });
+
+        // Lock the buttons and the selection until every change is saved, so a second click
+        // can't send the same change again.
+        async void Run(Func<int, Task> change, string verb)
+        {
+            actions.Enabled = list.Enabled = false;
+            try
+            {
+                await Decide(Selected(), change, verb);
+            }
+            finally
+            {
+                if (!actions.IsDisposed)
+                    actions.Enabled = list.Enabled = true;
+            }
+        }
+
+        var service = new ReservationService();
+        btnApprove.Click += (s, e) => Run(service.ConfirmAsync, "approved");
+        btnReject.Click += (s, e) => Run(service.CancelAsync, "rejected");
+        btnReopen.Click += (s, e) => Run(service.ReopenAsync, "moved back to pending");
+        UpdateActions();
         panel.Controls.Add(list);
         panel.Controls.Add(actions);
         ShowInQueue(panel);
     }
 
-    private async void Decide(List<Reservation> reservations, Func<int, Task> change, string verb)
+    private async Task Decide(List<Reservation> reservations, Func<int, Task> change, string verb)
     {
         if (reservations.Count == 0)
             return;
