@@ -26,11 +26,14 @@ static class Program
         try
         {
             using var db = new LibraryDbContext();
-            db.Database.Migrate();
+            DatabaseSetup.Migrate(db);
         }
         catch (Exception ex)
         {
-            MessageBox.Show("Failed to migrate database: " + ex.Message);
+            // Running on an old schema would crash later, so stop here.
+            MessageBox.Show("Failed to update the database, so UniLib cannot start.\n\n" + ex.Message,
+                "UniLib", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            return;
         }
 
         try

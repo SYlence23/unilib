@@ -87,7 +87,9 @@ public class ChangePasswordForm : MaterialForm
             error = "New password must be at least 6 characters.";
         else if (_new.Text != _confirm.Text)
             error = "Passwords do not match.";
-        else if (_new.Text == _current.Text || _new.Text == AuthService.DefaultAdminPassword)
+        else if (_new.Text == AuthService.DefaultAdminPassword)
+            error = "This password is not allowed.";
+        else if (_new.Text == _current.Text)
             error = "Choose a password different from the current one.";
         if (error != null)
         {
