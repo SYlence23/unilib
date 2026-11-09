@@ -38,6 +38,29 @@ public class ReservationServiceTests : IDisposable
         await Assert.ThrowsAsync<InvalidOperationException>(() => _reservations.CreateAsync(9999, "111"));
     }
 
+    [Fact]
+    public async Task Create_AtOpenLimit_Throws_CountingApprovedRequests()
+    {
+        _db.AddReservation(_userId, "111", ReservationStatus.Pending, Today);
+        _db.AddReservation(_userId, "111", ReservationStatus.Active, Today);
+        _db.AddReservation(_userId, "111", ReservationStatus.Active, Today);
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _reservations.CreateAsync(_userId, "111"));
+        Assert.Equal(ReservationService.LimitReachedMessage, ex.Message);
+    }
+
+    [Fact]
+    public async Task Create_ClosedRequestsDoNotCountTowardLimit()
+    {
+        _db.AddReservation(_userId, "111", ReservationStatus.Pending, Today);
+        _db.AddReservation(_userId, "111", ReservationStatus.Cancelled, Today);
+        _db.AddReservation(_userId, "111", ReservationStatus.Completed, Today);
+        _db.AddReservation(_db.AddUser("olena@uni.edu"), "111", ReservationStatus.Active, Today);
+
+        await _reservations.CreateAsync(_userId, "111");
+        await _reservations.CreateAsync(_userId, "111");
+    }
+
     public enum Action { Confirm, Cancel, Complete, Reopen }
 
     // Every status change: from, action, and the resulting status (null = refused).

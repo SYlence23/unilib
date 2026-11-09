@@ -77,12 +77,12 @@ public class CatalogDataTests : IDisposable
     }
 
     [Fact]
-    public async Task Reserve_AtOpenRequestLimit_IsRefused()
+    public async Task Reserve_AtOpenRequestLimit_IsRefused_CountingApproved()
     {
         for (var i = 0; i < LibraryRules.MaxOpenReservations; i++)
         {
             _db.AddBook($"B{i}");
-            _db.AddReservation(_userId, $"B{i}", ReservationStatus.Pending, Today);
+            _db.AddReservation(_userId, $"B{i}", i == 0 ? ReservationStatus.Pending : ReservationStatus.Active, Today);
         }
         var data = await Load();
 
