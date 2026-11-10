@@ -22,4 +22,7 @@ public static class ReservationStatus
     public const string Active = "active";
     public const string Cancelled = "cancelled";
     public const string Completed = "completed";
+
+    // Waiting for a librarian or approved: the book is held and counts toward the limit.
+    public static bool IsOpen(string status) => status is Pending or Active;
 }
