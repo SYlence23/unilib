@@ -119,7 +119,7 @@ public class LoginForm : MaterialForm
         {
             AutoSize = true,
             WrapContents = false,
-            BackColor = Color.Transparent,
+            BackColor = Theme.Ground,
             Margin = new Padding(0)
         };
         var half = (FieldWidth - 12) / 2;
@@ -156,7 +156,7 @@ public class LoginForm : MaterialForm
         WrapContents = false,
         AutoSize = true,
         AutoSizeMode = AutoSizeMode.GrowAndShrink,
-        BackColor = Color.Transparent
+        BackColor = Theme.Ground
     };
 
     private static Label Title(string text)

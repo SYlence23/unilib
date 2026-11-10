@@ -43,7 +43,7 @@ public class CatalogControl : UserControl
             Location = new Point(0, 20),
             AutoSize = true,
             WrapContents = false,
-            BackColor = Color.Transparent
+            BackColor = Theme.Ground
         };
         _search = Ui.TextField("Search books...", 320);
         _search.LeadingIcon = Icons.Bitmap(Glyph.Search, Color.Black);

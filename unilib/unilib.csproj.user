@@ -10,9 +10,6 @@
     <Compile Update="UI\Controls\MapControl.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Update="UI\Controls\PasswordTextBox.cs">
-      <SubType>Component</SubType>
-    </Compile>
     <Compile Update="UI\Controls\ProfileControl.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -20,9 +17,6 @@
       <SubType>Form</SubType>
     </Compile>
     <Compile Update="UI\Forms\MainForm.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Update="UI\Forms\RegisterForm.cs">
       <SubType>Form</SubType>
     </Compile>
   </ItemGroup>

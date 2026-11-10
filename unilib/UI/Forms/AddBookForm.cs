@@ -111,7 +111,7 @@ public class AddBookForm : MaterialForm
 
     private static FlowLayoutPanel Row(params Control[] controls)
     {
-        var row = new FlowLayoutPanel { AutoSize = true, WrapContents = false, BackColor = Color.Transparent, Margin = new Padding(0) };
+        var row = new FlowLayoutPanel { AutoSize = true, WrapContents = false, BackColor = Theme.Ground, Margin = new Padding(0) };
         row.Controls.AddRange(controls);
         return row;
     }
