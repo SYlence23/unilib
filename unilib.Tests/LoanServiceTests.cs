@@ -5,25 +5,20 @@ namespace unilib.Tests;
 
 public class LoanServiceTests : IDisposable
 {
+    private static readonly DateOnly Today = new(2026, 3, 10);
+
     private readonly TestDb _db = new();
     private readonly LoanService _loans;
     private readonly int _userId;
 
     public LoanServiceTests()
     {
-        _loans = new LoanService(_db.Create);
-
-        using var db = _db.Create();
-        db.Books.Add(new Book { Isbn = "111", Title = "Clean Code", Category = new Category { Name = "Programming" }, Amount = 1 });
-        db.SaveChanges();
-
-        _userId = new AuthService(_db.Create)
-            .RegisterAsync("Ivan", "Petrenko", "ivan@uni.edu", "Secret123!").GetAwaiter().GetResult().Id;
+        _loans = new LoanService(_db.Create, new FixedTime(Today));
+        _db.AddBook("111", amount: 1, title: "Clean Code");
+        _userId = _db.AddUser();
     }
 
     public void Dispose() => _db.Dispose();
-
-    private static DateOnly Today => DateOnly.FromDateTime(DateTime.Today);
 
     [Fact]
     public async Task Create_MakesActiveLoan()
@@ -41,7 +36,72 @@ public class LoanServiceTests : IDisposable
     public async Task Create_UnknownBook_Throws()
     {
         await Assert.ThrowsAsync<InvalidOperationException>(
-            () => _loans.CreateAsync(_userId, "999", Today));
+            () => _loans.CreateAsync(_userId, "999", Today.AddDays(14)));
+    }
+
+    [Fact]
+    public async Task Create_UnknownUser_Throws()
+    {
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _loans.CreateAsync(9999, "111", Today.AddDays(14)));
+    }
+
+    [Fact]
+    public async Task Create_NoCopiesLeft_Throws()
+    {
+        // Book 111 has one copy.
+        await _loans.CreateAsync(_userId, "111", Today.AddDays(14));
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _loans.CreateAsync(_userId, "111", Today.AddDays(14)));
+        Assert.Contains("No copies", ex.Message);
+    }
+
+    [Fact]
+    public async Task Create_AfterCopyReturned_Succeeds()
+    {
+        var first = await _loans.CreateAsync(_userId, "111", Today.AddDays(14));
+        await _loans.ReturnAsync(first.Id);
+
+        var second = await _loans.CreateAsync(_userId, "111", Today.AddDays(14));
+
+        Assert.Equal(LoanStatus.Active, second.Status);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-3)]
+    public async Task Create_DueDateNotAfterToday_Throws(int days)
+    {
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _loans.CreateAsync(_userId, "111", Today.AddDays(days)));
+        Assert.Empty(await _loans.GetActiveAsync());
+    }
+
+    [Fact]
+    public async Task Create_OverLoanLimit_Throws()
+    {
+        for (var i = 0; i < LibraryRules.MaxActiveLoans; i++)
+        {
+            _db.AddBook($"B{i}");
+            await _loans.CreateAsync(_userId, $"B{i}", Today.AddDays(14));
+        }
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _loans.CreateAsync(_userId, "111", Today.AddDays(14)));
+        Assert.Contains("Loan limit", ex.Message);
+    }
+
+    [Fact]
+    public async Task Create_ReturnedLoansDontCountTowardsLimit()
+    {
+        for (var i = 0; i < LibraryRules.MaxActiveLoans; i++)
+        {
+            _db.AddBook($"B{i}");
+            _db.AddLoan(_userId, $"B{i}", Today.AddDays(-30), Today.AddDays(-16), returned: Today.AddDays(-20));
+        }
+
+        await _loans.CreateAsync(_userId, "111", Today.AddDays(14));
     }
 
     [Fact]
@@ -73,5 +133,33 @@ public class LoanServiceTests : IDisposable
 
         var loan = Assert.Single(await _loans.GetByUserAsync(_userId));
         Assert.Equal("Clean Code", loan.Book.Title);
+    }
+
+    [Fact]
+    public async Task MarkOverdue_ChangesOnlyActiveLoansPastDueDate()
+    {
+        _db.AddBook("222");
+        _db.AddBook("333");
+        var late = _db.AddLoan(_userId, "111", Today.AddDays(-20), Today.AddDays(-6));
+        var dueToday = _db.AddLoan(_userId, "222", Today.AddDays(-14), Today);
+        var returned = _db.AddLoan(_userId, "333", Today.AddDays(-30), Today.AddDays(-16), returned: Today.AddDays(-18));
+
+        Assert.Equal(1, await _loans.MarkOverdueAsync());
+
+        Assert.Equal(LoanStatus.Overdue, (await _loans.GetByIdAsync(late.Id))!.Status);
+        Assert.Equal(LoanStatus.Active, (await _loans.GetByIdAsync(dueToday.Id))!.Status);
+        Assert.Equal(LoanStatus.Returned, (await _loans.GetByIdAsync(returned.Id))!.Status);
+        Assert.Equal(0, await _loans.MarkOverdueAsync());
+    }
+
+    [Fact]
+    public async Task Return_OverdueLoan_IsReturned()
+    {
+        var late = _db.AddLoan(_userId, "111", Today.AddDays(-20), Today.AddDays(-6));
+        await _loans.MarkOverdueAsync();
+
+        await _loans.ReturnAsync(late.Id);
+
+        Assert.Equal(LoanStatus.Returned, (await _loans.GetByIdAsync(late.Id))!.Status);
     }
 }

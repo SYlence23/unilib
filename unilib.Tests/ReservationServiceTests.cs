@@ -5,20 +5,17 @@ namespace unilib.Tests;
 
 public class ReservationServiceTests : IDisposable
 {
+    private static readonly DateOnly Today = new(2026, 3, 10);
+
     private readonly TestDb _db = new();
     private readonly ReservationService _reservations;
     private readonly int _userId;
 
     public ReservationServiceTests()
     {
-        _reservations = new ReservationService(_db.Create);
-
-        using var db = _db.Create();
-        db.Books.Add(new Book { Isbn = "111", Title = "Clean Code", Category = new Category { Name = "Programming" }, Amount = 1 });
-        db.SaveChanges();
-
-        _userId = new AuthService(_db.Create)
-            .RegisterAsync("Ivan", "Petrenko", "ivan@uni.edu", "Secret123!").GetAwaiter().GetResult().Id;
+        _reservations = new ReservationService(_db.Create, new FixedTime(Today));
+        _db.AddBook("111", title: "Clean Code");
+        _userId = _db.AddUser();
     }
 
     public void Dispose() => _db.Dispose();
@@ -26,37 +23,108 @@ public class ReservationServiceTests : IDisposable
     private async Task<string> StatusOf(int id) => (await _reservations.GetByIdAsync(id))!.Status;
 
     [Fact]
-    public async Task Reopen_ApprovedRequest_IsPendingAgain()
+    public async Task Create_MakesPendingRequestDatedToday()
     {
         var reservation = await _reservations.CreateAsync(_userId, "111");
-        await _reservations.ConfirmAsync(reservation.Id);
 
-        await _reservations.ReopenAsync(reservation.Id);
-
-        Assert.Equal(ReservationStatus.Pending, await StatusOf(reservation.Id));
+        Assert.Equal(ReservationStatus.Pending, reservation.Status);
+        Assert.Equal(Today, reservation.ReservationDate);
     }
 
     [Fact]
-    public async Task Reopen_CancelledRequest_IsPendingAgain()
+    public async Task Create_UnknownBookOrUser_Throws()
     {
-        var reservation = await _reservations.CreateAsync(_userId, "111");
-        await _reservations.CancelAsync(reservation.Id);
-
-        await _reservations.ReopenAsync(reservation.Id);
-
-        Assert.Equal(ReservationStatus.Pending, await StatusOf(reservation.Id));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _reservations.CreateAsync(_userId, "999"));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _reservations.CreateAsync(9999, "111"));
     }
 
     [Fact]
-    public async Task Reopen_PendingOrCompletedRequest_Throws()
+    public async Task Create_AtOpenLimit_Throws_CountingApprovedRequests()
     {
-        var pending = await _reservations.CreateAsync(_userId, "111");
-        var completed = await _reservations.CreateAsync(_userId, "111");
-        await _reservations.ConfirmAsync(completed.Id);
-        await _reservations.CompleteAsync(completed.Id);
+        _db.AddReservation(_userId, "111", ReservationStatus.Pending, Today);
+        _db.AddReservation(_userId, "111", ReservationStatus.Active, Today);
+        _db.AddReservation(_userId, "111", ReservationStatus.Active, Today);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => _reservations.ReopenAsync(pending.Id));
-        await Assert.ThrowsAsync<InvalidOperationException>(() => _reservations.ReopenAsync(completed.Id));
-        Assert.Equal(ReservationStatus.Completed, await StatusOf(completed.Id));
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _reservations.CreateAsync(_userId, "111"));
+        Assert.Equal(ReservationService.LimitReachedMessage, ex.Message);
+    }
+
+    [Fact]
+    public async Task Create_ClosedRequestsDoNotCountTowardLimit()
+    {
+        _db.AddReservation(_userId, "111", ReservationStatus.Pending, Today);
+        _db.AddReservation(_userId, "111", ReservationStatus.Cancelled, Today);
+        _db.AddReservation(_userId, "111", ReservationStatus.Completed, Today);
+        _db.AddReservation(_db.AddUser("olena@uni.edu"), "111", ReservationStatus.Active, Today);
+
+        await _reservations.CreateAsync(_userId, "111");
+        await _reservations.CreateAsync(_userId, "111");
+    }
+
+    public enum Action { Confirm, Cancel, Complete, Reopen }
+
+    // Every status change: from, action, and the resulting status (null = refused).
+    public static TheoryData<string, Action, string?> Transitions => new()
+    {
+        { ReservationStatus.Pending, Action.Confirm, ReservationStatus.Active },
+        { ReservationStatus.Pending, Action.Cancel, ReservationStatus.Cancelled },
+        { ReservationStatus.Pending, Action.Complete, null },
+        { ReservationStatus.Pending, Action.Reopen, null },
+        { ReservationStatus.Active, Action.Confirm, null },
+        { ReservationStatus.Active, Action.Cancel, ReservationStatus.Cancelled },
+        { ReservationStatus.Active, Action.Complete, ReservationStatus.Completed },
+        { ReservationStatus.Active, Action.Reopen, ReservationStatus.Pending },
+        { ReservationStatus.Cancelled, Action.Confirm, null },
+        { ReservationStatus.Cancelled, Action.Cancel, null },
+        { ReservationStatus.Cancelled, Action.Complete, null },
+        { ReservationStatus.Cancelled, Action.Reopen, ReservationStatus.Pending },
+        { ReservationStatus.Completed, Action.Confirm, null },
+        { ReservationStatus.Completed, Action.Cancel, null },
+        { ReservationStatus.Completed, Action.Complete, null },
+        { ReservationStatus.Completed, Action.Reopen, null },
+    };
+
+    [Theory]
+    [MemberData(nameof(Transitions))]
+    public async Task StatusChange_FollowsTheFlow(string from, Action action, string? expected)
+    {
+        var id = _db.AddReservation(_userId, "111", from, Today).Id;
+        Task Run() => action switch
+        {
+            Action.Confirm => _reservations.ConfirmAsync(id),
+            Action.Cancel => _reservations.CancelAsync(id),
+            Action.Complete => _reservations.CompleteAsync(id),
+            _ => _reservations.ReopenAsync(id)
+        };
+
+        if (expected == null)
+        {
+            await Assert.ThrowsAsync<InvalidOperationException>(Run);
+            Assert.Equal(from, await StatusOf(id));
+        }
+        else
+        {
+            await Run();
+            Assert.Equal(expected, await StatusOf(id));
+        }
+    }
+
+    [Fact]
+    public async Task StatusChange_UnknownReservation_Throws()
+    {
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _reservations.ConfirmAsync(9999));
+    }
+
+    [Fact]
+    public async Task GetPending_ReturnsOnlyPendingOldestFirst()
+    {
+        var newer = _db.AddReservation(_userId, "111", ReservationStatus.Pending, Today);
+        var older = _db.AddReservation(_userId, "111", ReservationStatus.Pending, Today.AddDays(-2));
+        _db.AddReservation(_userId, "111", ReservationStatus.Active, Today.AddDays(-5));
+
+        var pending = await _reservations.GetPendingAsync();
+
+        Assert.Equal(new[] { older.Id, newer.Id }, pending.Select(r => r.Id));
+        Assert.All(pending, r => Assert.Equal("Clean Code", r.Book.Title));
     }
 }

@@ -78,4 +78,61 @@ public class AuthServiceTests : IDisposable
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => _auth.ChangePasswordAsync(user.Id, "wrong", "NewSecret1!"));
     }
+
+    private const string AdminEmail = "admin@unilib.com";
+
+    private string RoleOf(string email)
+    {
+        using var db = _db.Create();
+        var user = db.Users.Single(u => u.Email == email);
+        return db.Roles.Single(r => r.Id == user.RoleId).Name;
+    }
+
+    private void MakeAdmin(string email)
+    {
+        using var db = _db.Create();
+        db.Users.Single(u => u.Email == email).RoleId = db.Roles.Single(r => r.Name == RoleNames.Admin).Id;
+        db.SaveChanges();
+    }
+
+    [Fact]
+    public async Task EnsureAdmin_EmptyDatabase_CreatesAdminWithDefaultPassword()
+    {
+        await _auth.EnsureAdminAsync(AdminEmail);
+
+        Assert.Equal(RoleNames.Admin, RoleOf(AdminEmail));
+        Assert.NotNull(await _auth.LoginAsync(AdminEmail, AuthService.DefaultAdminPassword));
+    }
+
+    [Fact]
+    public async Task EnsureAdmin_SeededAccountCreatedAsStudent_IsPromoted()
+    {
+        await _auth.RegisterAsync("Admin", "User", AdminEmail, AuthService.DefaultAdminPassword);
+
+        await _auth.EnsureAdminAsync(AdminEmail);
+
+        Assert.Equal(RoleNames.Admin, RoleOf(AdminEmail));
+    }
+
+    [Fact]
+    public async Task EnsureAdmin_EmailRegisteredWithOwnPassword_IsNotPromoted()
+    {
+        await _auth.RegisterAsync("Someone", "Else", AdminEmail, "TheirOwn123!");
+
+        await _auth.EnsureAdminAsync(AdminEmail);
+
+        Assert.Equal(RoleNames.Student, RoleOf(AdminEmail));
+    }
+
+    [Fact]
+    public async Task EnsureAdmin_AdminAlreadyExists_ChangesNothing()
+    {
+        await _auth.RegisterAsync("Real", "Admin", "boss@uni.edu", "Secret123!");
+        MakeAdmin("boss@uni.edu");
+
+        await _auth.EnsureAdminAsync(AdminEmail);
+
+        using var db = _db.Create();
+        Assert.False(db.Users.Any(u => u.Email == AdminEmail));
+    }
 }
