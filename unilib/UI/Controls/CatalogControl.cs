@@ -325,7 +325,8 @@ public class CatalogControl : UserControl
             {
                 book.Title, CatalogData.Authors(book), book.Category.Name, book.Isbn,
                 _data.Location(book), _data.AvailabilityLabel(book), StatusText(book)
-            }) { Tag = book };
+            })
+            { Tag = book };
             list.Items.Add(item);
         }
 
