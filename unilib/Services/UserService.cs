@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using unilib.Data;
 using unilib.Models;
 
@@ -36,6 +37,7 @@ public class UserService : ServiceBase
     {
         using var db = CreateDb();
         var existing = await db.Users.FindAsync(user.Id) ?? throw NotFound<User>(user.Id);
+        var oldRoleId = existing.RoleId;
 
         existing.RoleId = user.RoleId;
         existing.FacultyId = user.FacultyId;
@@ -47,6 +49,10 @@ public class UserService : ServiceBase
         existing.Phone = user.Phone;
 
         await SaveAsync(db, nameof(User));
+        Logger.LogInformation("Updated user {UserId}, by user {ActorId}", user.Id, ActorId);
+        if (oldRoleId != user.RoleId)
+            Logger.LogWarning("Role of user {UserId} changed from {OldRoleId} to {NewRoleId}, by user {ActorId}",
+                user.Id, oldRoleId, user.RoleId, ActorId);
     }
 
     public Task DeleteAsync(int id) => DeleteEntityAsync<User>(id);

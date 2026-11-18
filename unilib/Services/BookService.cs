@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using unilib.Data;
 using unilib.Models;
 
@@ -103,6 +104,8 @@ public class BookService : ServiceBase
             }
             throw;
         }
+        Logger.LogInformation("Added book {Isbn} with {AuthorCount} authors, by user {ActorId}",
+            book.Isbn, unique.Count, ActorId);
         return book;
     }
 

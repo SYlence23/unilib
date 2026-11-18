@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using unilib.Data;
 using unilib.Models;
 
@@ -83,6 +84,8 @@ public class LoanService : ServiceBase
 
         db.UserBooks.Add(loan);
         await SaveAsync(db, "loan");
+        Logger.LogInformation("Loan {LoanId}: book {Isbn} to user {UserId}, due {DueDate}, by user {ActorId}",
+            loan.Id, isbn, userId, dueDate, ActorId);
         return loan;
     }
 
@@ -97,6 +100,7 @@ public class LoanService : ServiceBase
         loan.ReturnDate = Today;
         loan.Status = LoanStatus.Returned;
         await SaveAsync(db, "loan");
+        Logger.LogInformation("Loan {LoanId} returned, by user {ActorId}", loanId, ActorId);
     }
 
     // Marks active loans past their due date as overdue. Returns how many changed.
@@ -110,7 +114,10 @@ public class LoanService : ServiceBase
         foreach (var loan in late)
             loan.Status = LoanStatus.Overdue;
         if (late.Count > 0)
+        {
             await SaveAsync(db, "loan");
+            Logger.LogInformation("Marked {Count} loans as overdue", late.Count);
+        }
         return late.Count;
     }
 

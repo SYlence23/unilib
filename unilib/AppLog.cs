@@ -40,6 +40,18 @@ public static class AppLog
         factory.Dispose();
     }
 
+    // "ivan.petrenko@uni.edu" -> "iv***@uni.edu": enough to tell accounts apart in the log
+    // without writing out the address.
+    public static string MaskEmail(string? email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            return "(empty)";
+        var at = email.IndexOf('@');
+        var name = at < 0 ? email : email[..at];
+        var domain = at < 0 ? "" : email[at..];
+        return name[..Math.Min(2, name.Length)] + "***" + domain;
+    }
+
     public static ILoggerFactory CreateFactory(IConfiguration configuration, out string directory)
     {
         var section = configuration.GetSection("Logging");

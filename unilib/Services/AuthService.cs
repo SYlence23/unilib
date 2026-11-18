@@ -1,12 +1,15 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using unilib.Data;
 using unilib.Models;
 
 namespace unilib.Services;
 
 // Registration and login. Passwords are hashed with ASP.NET Core Identity's
-// PasswordHasher (salted PBKDF2); plain passwords are never stored.
+// PasswordHasher (salted PBKDF2); plain passwords are never stored or logged.
+// Sign-ins, failed sign-ins and password changes are logged for auditing,
+// with masked email addresses.
 public class AuthService : ServiceBase
 {
     // Password of the seeded admin account. Signing in with it forces a password change.
@@ -14,7 +17,8 @@ public class AuthService : ServiceBase
 
     private readonly PasswordHasher<User> _hasher = new();
 
-    public AuthService(Func<LibraryDbContext>? createDb = null) : base(createDb)
+    public AuthService(Func<LibraryDbContext>? createDb = null, ILogger<AuthService>? logger = null)
+        : base(createDb, logger)
     {
     }
 
@@ -28,7 +32,10 @@ public class AuthService : ServiceBase
 
         using var db = CreateDb();
         if (await db.Users.AnyAsync(u => u.Email == email))
+        {
+            Logger.LogWarning("Registration refused: {Email} is already registered", AppLog.MaskEmail(email));
             throw new InvalidOperationException($"A user with email '{email}' already exists.");
+        }
 
         var studentRole = await db.Roles.SingleOrDefaultAsync(r => r.Name == RoleNames.Student)
             ?? throw new InvalidOperationException($"Role '{RoleNames.Student}' is missing in the database.");
@@ -46,6 +53,8 @@ public class AuthService : ServiceBase
 
         db.Users.Add(user);
         await SaveAsync(db, nameof(User));
+        Logger.LogInformation("Registered user {UserId} ({Email}) as {Role}",
+            user.Id, AppLog.MaskEmail(email), RoleNames.Student);
         return user;
     }
 
@@ -57,18 +66,27 @@ public class AuthService : ServiceBase
         using var db = CreateDb();
         var user = await db.Users.Include(u => u.Role).SingleOrDefaultAsync(u => u.Email == email);
         if (user == null)
+        {
+            Logger.LogWarning("Failed sign-in for {Email}: no such account", AppLog.MaskEmail(email));
             return null;
+        }
 
         var result = _hasher.VerifyHashedPassword(user, user.PasswordHash, password);
         if (result == PasswordVerificationResult.Failed)
+        {
+            Logger.LogWarning("Failed sign-in for user {UserId} ({Email}): wrong password",
+                user.Id, AppLog.MaskEmail(email));
             return null;
+        }
 
         if (result == PasswordVerificationResult.SuccessRehashNeeded)
         {
             user.PasswordHash = _hasher.HashPassword(user, password);
             await SaveAsync(db, nameof(User));
+            Logger.LogInformation("Rehashed the password of user {UserId} with current settings", user.Id);
         }
 
+        Logger.LogInformation("User {UserId} signed in as {Role}", user.Id, user.Role.Name);
         return user;
     }
 
@@ -81,10 +99,14 @@ public class AuthService : ServiceBase
         var user = await db.Users.FindAsync(userId) ?? throw NotFound<User>(userId);
 
         if (_hasher.VerifyHashedPassword(user, user.PasswordHash, oldPassword) == PasswordVerificationResult.Failed)
+        {
+            Logger.LogWarning("Password change refused for user {UserId}: wrong current password", userId);
             throw new InvalidOperationException("Current password is incorrect.");
+        }
 
         user.PasswordHash = _hasher.HashPassword(user, newPassword);
         await SaveAsync(db, nameof(User));
+        Logger.LogInformation("User {UserId} changed their password", userId);
     }
 
     // Makes sure the database has an admin. Once any admin exists this does nothing.
@@ -101,14 +123,24 @@ public class AuthService : ServiceBase
         if (adminRole == null || await db.Users.AnyAsync(u => u.RoleId == adminRole.Id))
             return;
 
-        if (!await db.Users.AnyAsync(u => u.Email == email))
+        var admin = await db.Users.SingleOrDefaultAsync(u => u.Email == email);
+        if (admin == null)
+        {
             await RegisterAsync("Admin", "User", email, DefaultAdminPassword);
-        else if (await LoginAsync(email, DefaultAdminPassword) == null)
+            admin = await db.Users.SingleAsync(u => u.Email == email);
+        }
+        else if (_hasher.VerifyHashedPassword(admin, admin.PasswordHash, DefaultAdminPassword)
+            == PasswordVerificationResult.Failed)
+        {
+            Logger.LogWarning("No admin account exists, and {Email} is taken by a user with their own password",
+                AppLog.MaskEmail(email));
             return;
+        }
 
-        var admin = await db.Users.SingleAsync(u => u.Email == email);
         admin.RoleId = adminRole.Id;
         await SaveAsync(db, nameof(User));
+        Logger.LogWarning("Made user {UserId} the admin with the default password; it must be changed at first sign-in",
+            admin.Id);
     }
 
     private static string NormalizeEmail(string email) => email.Trim().ToLowerInvariant();
