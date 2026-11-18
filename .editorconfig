@@ -1,0 +1,18 @@
+root = true
+
+[*]
+indent_style = space
+trim_trailing_whitespace = true
+
+[*.cs]
+indent_size = 4
+
+[*.{csproj,slnx,props,targets,json,yml,yaml}]
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
+
+# EF Core migrations are generated; formatting checks skip them.
+[unilib/Data/Migrations/**.cs]
+generated_code = true

@@ -16,10 +16,12 @@ static class Program
     {
         ApplicationConfiguration.Initialize();
 
-        System.Windows.Forms.Application.ThreadException += (s, e) => {
+        System.Windows.Forms.Application.ThreadException += (s, e) =>
+        {
             System.IO.File.AppendAllText("crash_log.txt", "ThreadException: " + e.Exception.ToString() + "\n");
         };
-        AppDomain.CurrentDomain.UnhandledException += (s, e) => {
+        AppDomain.CurrentDomain.UnhandledException += (s, e) =>
+        {
             System.IO.File.AppendAllText("crash_log.txt", "UnhandledException: " + e.ExceptionObject.ToString() + "\n");
         };
 

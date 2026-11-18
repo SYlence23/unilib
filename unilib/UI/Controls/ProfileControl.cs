@@ -118,7 +118,8 @@ public class ProfileControl : UserControl
             {
                 Ui.RequestId(reservation.Id), reservation.Book.Title,
                 reservation.ReservationDate.ToString("yyyy-MM-dd"), due ?? "—", Ui.StatusLabel(reservation.Status)
-            }) { Tag = reservation });
+            })
+            { Tag = reservation });
         }
 
         var btnCancel = Ui.Button("Cancel reservation", MaterialButton.MaterialButtonType.Outlined);
@@ -167,7 +168,8 @@ public class ProfileControl : UserControl
             {
                 book.Title, CatalogData.Authors(book), _data.Location(book), _data.AvailabilityLabel(book),
                 _data.IsHeld(book.Isbn) ? "Reserved" : ""
-            }) { Tag = book });
+            })
+            { Tag = book });
 
         var btnReserve = Ui.Button("Reserve", MaterialButton.MaterialButtonType.Contained);
         var btnLocate = Ui.Button("Locate", MaterialButton.MaterialButtonType.Outlined, Glyph.Pin);

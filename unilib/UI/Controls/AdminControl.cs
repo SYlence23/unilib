@@ -120,7 +120,8 @@ public class AdminControl : UserControl
             {
                 Ui.RequestId(r.Id), $"{r.User.FirstName} {r.User.LastName}", r.Book.Title,
                 r.ReservationDate.ToString("yyyy-MM-dd"), Ui.StatusLabel(r.Status)
-            }) { Tag = r });
+            })
+            { Tag = r });
 
         var btnApprove = Ui.Button("Approve", MaterialButton.MaterialButtonType.Contained);
         var btnReject = Ui.Button("Reject", MaterialButton.MaterialButtonType.Outlined);
