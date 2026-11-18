@@ -32,13 +32,9 @@ public class LibraryDbContext : DbContext
         if (optionsBuilder.IsConfigured)
             return;
 
-        var configuration = new ConfigurationBuilder()
-            .SetBasePath(AppContext.BaseDirectory)
-            .AddJsonFile("appsettings.json", optional: false)
-            .Build();
-
-        var connectionString = configuration.GetConnectionString("Default")
-            ?? throw new InvalidOperationException("Connection string 'Default' is missing in appsettings.json.");
+        var connectionString = AppConfig.Configuration.GetConnectionString("Default")
+            ?? throw new InvalidOperationException(
+                "Connection string 'Default' is missing. Set it in appsettings.Local.json or UNILIB_ConnectionStrings__Default.");
 
         optionsBuilder
             .UseNpgsql(connectionString)

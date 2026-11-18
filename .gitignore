@@ -6,6 +6,9 @@
 # dotenv files
 .env
 
+# Per-machine settings with secrets (see unilib/appsettings.Local.example.json)
+appsettings.Local.json
+
 # User-specific files
 *.rsuser
 *.suo
