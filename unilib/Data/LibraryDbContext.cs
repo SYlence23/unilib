@@ -38,7 +38,10 @@ public class LibraryDbContext : DbContext
 
         optionsBuilder
             .UseNpgsql(connectionString)
-            .UseSnakeCaseNamingConvention();
+            .UseSnakeCaseNamingConvention()
+            // EF Core warnings and failed commands go to the app log. Parameter values stay hidden
+            // because sensitive data logging is never enabled.
+            .UseLoggerFactory(AppLog.Factory);
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
