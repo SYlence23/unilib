@@ -20,8 +20,8 @@
   | Error | несподівані помилки, помилки збереження в БД, недоступна БД (з повним винятком і стеком) |
   | Critical | збій міграції БД під час запуску, неперехоплений виняток |
 
-- **Що не пишеться:** паролі, хеші паролів, рядок підключення, значення SQL-параметрів
-  (`EnableSensitiveDataLogging` вимкнено). Email маскується: `iv***@uni.edu`.
+- **Що не пишеться:** паролі, хеші паролів, email, рядок підключення, значення SQL-параметрів
+  (`EnableSensitiveDataLogging` вимкнено). Користувач позначається лише своїм id.
   Кожна зміна містить id користувача, який її зробив.
 
 Приклад:
@@ -29,7 +29,7 @@
 ```text
 2026-11-18 09:43:08.465 +02:00 [INF] unilib.Program: UniLib 1.0.0 starting on Microsoft Windows NT 10.0.26300.0
 2026-11-18 09:43:11.991 +02:00 [INF] unilib.Program: Database schema is up to date
-2026-11-18 09:44:02.118 +02:00 [WRN] unilib.Services.AuthService: Failed sign-in for user 7 (iv***@uni.edu): wrong password
+2026-11-18 09:44:02.118 +02:00 [WRN] unilib.Services.AuthService: Failed sign-in for user 7: wrong password
 2026-11-18 09:44:09.530 +02:00 [INF] unilib.Services.AuthService: User 7 signed in as student
 2026-11-18 09:44:31.004 +02:00 [INF] unilib.Services.ReservationService: Reservation 15: book 9780134685991 for user 7, by user 7
 2026-11-18 09:45:12.771 +02:00 [INF] unilib.UI.ErrorMessages: Reserving a book refused: Reservation limit reached (3 open requests).
@@ -79,7 +79,7 @@
 | 2 | Зберігання паролів користувачів | `AuthService` | PBKDF2 із сіллю (`PasswordHasher` з ASP.NET Core Identity), автоматичне перехешування; мінімальну довжину збільшено з 6 до 8 | Виправлено |
 | 3 | SQL-ін'єкції | Пошук `FromSqlRaw`, `ExecuteSqlRaw` | Усі запити через LINQ (параметризовані). Сирий SQL лише в `DatabaseSetup`, це згенеровані EF скрипти без вводу користувача. Сервіси перевіряють ввід | Ризику не виявлено |
 | 4 | Розкриття технічних деталей | 15 блоків `catch` в UI, діалоги запуску | `ErrorMessages`: користувач бачить безпечний текст, деталі йдуть у журнал | Виправлено |
-| 5 | Персональні дані в журналі | Тексти записів журналу | Паролі не пишуться, email маскується, `EnableSensitiveDataLogging` вимкнено; тести перевіряють, що пароль і повний email не потрапляють у журнал | Виправлено |
+| 5 | Персональні дані в журналі | Тексти записів журналу | Паролі й email не пишуться, користувач позначається id, `EnableSensitiveDataLogging` вимкнено; тести перевіряють, що ні пароль, ні email не потрапляють у журнал; CodeQL (`cs/exposure-of-sensitive-information`) перевіряє це на кожен PR | Виправлено |
 | 6 | Неперевірений ввід | Сервіси без перевірок | `Validation` у сервісах реєстрації, профілю, книг, авторів, категорій і бібліотек | Виправлено |
 | 7 | Втрата помилок | `crash_log.txt` у робочій папці, помилки UI-потоку ігнорувалися | Глобальні обробники пишуть у журнал і показують повідомлення | Виправлено |
 | 8 | Вразливі залежності | `dotnet package list --vulnerable` | Перевірка в CI на кожен PR, Dependabot | Вразливостей немає |

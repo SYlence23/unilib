@@ -55,13 +55,24 @@ public class AuthServiceLoggingTests : IDisposable
     }
 
     [Fact]
-    public async Task Login_UnknownEmail_IsLoggedAsWarningWithMaskedEmail()
+    public async Task Login_UnknownEmail_IsLoggedAsWarningWithoutTheEmail()
     {
         await _auth.LoginAsync(Email, Password);
 
         var entry = Assert.Single(_log.Entries);
         Assert.Equal(LogLevel.Warning, entry.Level);
-        Assert.Contains("iv***@uni.edu", entry.Message);
+        Assert.Equal("Failed sign-in: no such account", entry.Message);
+        AssertNoSecrets();
+    }
+
+    [Fact]
+    public async Task Register_DuplicateEmail_IsLoggedWithoutTheEmail()
+    {
+        await _auth.RegisterAsync("Ivan", "Petrenko", Email, Password);
+
+        await Assert.ThrowsAsync<ServiceException>(() => _auth.RegisterAsync("Other", "Person", Email, "Another1!"));
+
+        Assert.Contains(_log.Entries, e => e.Level == LogLevel.Warning && e.Message.StartsWith("Registration refused"));
         AssertNoSecrets();
     }
 
@@ -87,18 +98,11 @@ public class AuthServiceLoggingTests : IDisposable
         Assert.DoesNotContain(AuthService.DefaultAdminPassword, _log.AllText);
     }
 
+    // No password and no part of the email address.
     private void AssertNoSecrets()
     {
         Assert.DoesNotContain(Password, _log.AllText);
-        Assert.DoesNotContain(Email, _log.AllText);
+        Assert.DoesNotContain("@", _log.AllText);
+        Assert.DoesNotContain("ivan.petrenko", _log.AllText);
     }
-
-    [Theory]
-    [InlineData("ivan.petrenko@uni.edu", "iv***@uni.edu")]
-    [InlineData("a@uni.edu", "a***@uni.edu")]
-    [InlineData("no-at-sign", "no***")]
-    [InlineData("", "(empty)")]
-    [InlineData(null, "(empty)")]
-    public void MaskEmail_HidesTheName(string? email, string expected) =>
-        Assert.Equal(expected, AppLog.MaskEmail(email));
 }

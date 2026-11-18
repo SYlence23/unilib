@@ -11,7 +11,8 @@ namespace unilib;
 // Application-wide logging. Until Configure() runs, and in tests, loggers discard everything.
 // Files go to %LOCALAPPDATA%\UniLib\logs\unilib-YYYYMMDD.log: one per day, at most 10 MB each,
 // the last 14 kept. The "Logging" section of the settings can change MinimumLevel and Directory.
-// Never log passwords, password hashes or connection strings.
+// Never log passwords, password hashes, connection strings or email addresses:
+// identify users by their id.
 public static class AppLog
 {
     private const string FileTemplate =
@@ -38,18 +39,6 @@ public static class AppLog
         var factory = Factory;
         Factory = NullLoggerFactory.Instance;
         factory.Dispose();
-    }
-
-    // "ivan.petrenko@uni.edu" -> "iv***@uni.edu": enough to tell accounts apart in the log
-    // without writing out the address.
-    public static string MaskEmail(string? email)
-    {
-        if (string.IsNullOrWhiteSpace(email))
-            return "(empty)";
-        var at = email.IndexOf('@');
-        var name = at < 0 ? email : email[..at];
-        var domain = at < 0 ? "" : email[at..];
-        return name[..Math.Min(2, name.Length)] + "***" + domain;
     }
 
     public static ILoggerFactory CreateFactory(IConfiguration configuration, out string directory)

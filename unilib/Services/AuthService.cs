@@ -9,7 +9,7 @@ namespace unilib.Services;
 // Registration and login. Passwords are hashed with ASP.NET Core Identity's
 // PasswordHasher (salted PBKDF2); plain passwords are never stored or logged.
 // Sign-ins, failed sign-ins and password changes are logged for auditing,
-// with masked email addresses.
+// by user id. Email addresses are personal data and are never logged.
 public class AuthService : ServiceBase
 {
     // Password of the seeded admin account. Signing in with it forces a password change.
@@ -34,7 +34,7 @@ public class AuthService : ServiceBase
         using var db = CreateDb();
         if (await db.Users.AnyAsync(u => u.Email == email))
         {
-            Logger.LogWarning("Registration refused: {Email} is already registered", AppLog.MaskEmail(email));
+            Logger.LogWarning("Registration refused: the email is already registered");
             throw new ServiceException($"A user with email '{email}' already exists.");
         }
 
@@ -54,8 +54,7 @@ public class AuthService : ServiceBase
 
         db.Users.Add(user);
         await SaveAsync(db, nameof(User));
-        Logger.LogInformation("Registered user {UserId} ({Email}) as {Role}",
-            user.Id, AppLog.MaskEmail(email), RoleNames.Student);
+        Logger.LogInformation("Registered user {UserId} as {Role}", user.Id, RoleNames.Student);
         return user;
     }
 
@@ -67,7 +66,7 @@ public class AuthService : ServiceBase
         if (email.Length == 0 || email.Length > Validation.EmailLength
             || string.IsNullOrEmpty(password) || password.Length > Validation.MaxPasswordLength)
         {
-            Logger.LogWarning("Failed sign-in for {Email}: invalid input", AppLog.MaskEmail(email));
+            Logger.LogWarning("Failed sign-in: invalid input");
             return null;
         }
 
@@ -75,15 +74,14 @@ public class AuthService : ServiceBase
         var user = await db.Users.Include(u => u.Role).SingleOrDefaultAsync(u => u.Email == email);
         if (user == null)
         {
-            Logger.LogWarning("Failed sign-in for {Email}: no such account", AppLog.MaskEmail(email));
+            Logger.LogWarning("Failed sign-in: no such account");
             return null;
         }
 
         var result = _hasher.VerifyHashedPassword(user, user.PasswordHash, password);
         if (result == PasswordVerificationResult.Failed)
         {
-            Logger.LogWarning("Failed sign-in for user {UserId} ({Email}): wrong password",
-                user.Id, AppLog.MaskEmail(email));
+            Logger.LogWarning("Failed sign-in for user {UserId}: wrong password", user.Id);
             return null;
         }
 
@@ -143,8 +141,8 @@ public class AuthService : ServiceBase
         else if (_hasher.VerifyHashedPassword(admin, admin.PasswordHash, DefaultAdminPassword)
             == PasswordVerificationResult.Failed)
         {
-            Logger.LogWarning("No admin account exists, and {Email} is taken by a user with their own password",
-                AppLog.MaskEmail(email));
+            Logger.LogWarning("No admin account exists, and user {UserId} holds the admin email with their own password",
+                admin.Id);
             return;
         }
 
