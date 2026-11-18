@@ -21,7 +21,7 @@ env:
 
 jobs:
   build:
-    name: Build
+    name: Build and test
     # The app targets net10.0-windows (WinForms), so it builds on Windows.
     runs-on: windows-latest
     timeout-minutes: 20
@@ -40,3 +40,36 @@ jobs:
 
       - name: Build (warnings are errors)
         run: dotnet build unilib.slnx --configuration Release --no-restore -warnaserror
+
+      # Tests use SQLite in memory, so no PostgreSQL service is needed.
+      - name: Run tests
+        run: >
+          dotnet test unilib.slnx --configuration Release --no-build
+          --logger "trx;LogFileName=test-results.trx"
+          --logger GitHubActions
+          --collect "XPlat Code Coverage"
+          --results-directory TestResults
+
+      - name: Write coverage summary
+        if: ${{ !cancelled() }}
+        uses: danielpalme/ReportGenerator-GitHub-Action@v5
+        with:
+          reports: TestResults/*/coverage.cobertura.xml
+          targetdir: TestResults/coverage-report
+          reporttypes: HtmlInline;MarkdownSummaryGithub
+          assemblyfilters: +unilib
+
+      - name: Add coverage to the job summary
+        if: ${{ !cancelled() }}
+        shell: pwsh
+        run: |
+          $summary = 'TestResults/coverage-report/SummaryGithub.md'
+          if (Test-Path $summary) { Get-Content $summary | Add-Content $env:GITHUB_STEP_SUMMARY }
+
+      - name: Upload test results and coverage
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results
+          path: TestResults
+          retention-days: 14
