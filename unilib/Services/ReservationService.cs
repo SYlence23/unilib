@@ -65,7 +65,7 @@ public class ReservationService : ServiceBase
         if (open >= LibraryRules.MaxOpenReservations)
         {
             Logger.LogInformation("Reservation refused for user {UserId}: {Open} open requests", userId, open);
-            throw new InvalidOperationException(LimitReachedMessage);
+            throw new ServiceException(LimitReachedMessage);
         }
 
         var reservation = new Reservation
@@ -104,7 +104,7 @@ public class ReservationService : ServiceBase
         var reservation = await db.Reservations.FindAsync(id) ?? throw NotFound<Reservation>(id);
 
         if (!allowedFrom.Contains(reservation.Status))
-            throw new InvalidOperationException(
+            throw new ServiceException(
                 $"Cannot change reservation from '{reservation.Status}' to '{newStatus}'.");
 
         var oldStatus = reservation.Status;

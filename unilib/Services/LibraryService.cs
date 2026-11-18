@@ -40,12 +40,12 @@ public class LibraryService : ServiceBase
     private static void ValidateCoordinates(Library library)
     {
         if ((library.Latitude is null) != (library.Longitude is null))
-            throw new InvalidOperationException("Latitude and longitude must both be set or both be empty.");
+            throw new ServiceException("Latitude and longitude must both be set or both be empty.");
 
         if (library.Latitude is < -90 or > 90)
-            throw new InvalidOperationException($"Latitude must be between -90 and 90, got {library.Latitude}.");
+            throw new ServiceException($"Latitude must be between -90 and 90, got {library.Latitude}.");
 
         if (library.Longitude is < -180 or > 180)
-            throw new InvalidOperationException($"Longitude must be between -180 and 180, got {library.Longitude}.");
+            throw new ServiceException($"Longitude must be between -180 and 180, got {library.Longitude}.");
     }
 }

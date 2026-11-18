@@ -5,7 +5,8 @@ using unilib.Data;
 namespace unilib.Services;
 
 // Every operation opens its own short-lived LibraryDbContext.
-// Errors are rethrown as InvalidOperationException with a message a form can show.
+// Refused operations throw ServiceException with a message a form can show; failed saves are
+// logged and rethrown as ServiceException without the database details.
 // Changes are logged with the id of the signed-in user who made them.
 public abstract class ServiceBase
 {
@@ -63,13 +64,14 @@ public abstract class ServiceBase
         }
         catch (DbUpdateException ex)
         {
+            // The database error names tables and constraints, so it goes to the log, not to the user.
             Logger.LogError(ex, "Could not save {What}", what);
-            throw new InvalidOperationException(
-                $"Could not save {what}: {ex.InnerException?.Message ?? ex.Message}", ex);
+            throw new ServiceException(
+                $"Could not save the {what.ToLowerInvariant()}. Check the entered data and try again.", ex);
         }
     }
 
-    protected static InvalidOperationException NotFound<T>(params object[] key) =>
+    protected static ServiceException NotFound<T>(params object[] key) =>
         new($"{typeof(T).Name} '{string.Join(", ", key)}' was not found.");
 
     private static string KeyOf<T>(LibraryDbContext db, T entity) where T : class

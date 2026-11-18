@@ -64,7 +64,7 @@ public class BookService : ServiceBase
     {
         using var db = CreateDb();
         if (await IsbnExistsAsync(book.Isbn))
-            throw new InvalidOperationException(DuplicateIsbnMessage);
+            throw new ServiceException(DuplicateIsbnMessage);
 
         var categoryName = newCategory?.Trim() ?? "";
         if (categoryName.Length > 0)
@@ -90,16 +90,16 @@ public class BookService : ServiceBase
         {
             await SaveAsync(db, nameof(Book));
         }
-        catch (InvalidOperationException ex)
+        catch (ServiceException ex)
         {
             // Someone else saved the same ISBN or category between our checks and the save.
             if (await IsbnExistsAsync(book.Isbn))
-                throw new InvalidOperationException(DuplicateIsbnMessage, ex);
+                throw new ServiceException(DuplicateIsbnMessage, ex);
             if (categoryName.Length > 0 && book.Category.Id == 0)
             {
                 using var check = CreateDb();
                 if (FindByName(await check.Categories.ToListAsync(), categoryName) != null)
-                    throw new InvalidOperationException(
+                    throw new ServiceException(
                         $"The category '{categoryName}' was just added by someone else. Press Add again to use it.", ex);
             }
             throw;

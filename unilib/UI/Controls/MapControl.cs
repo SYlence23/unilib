@@ -102,7 +102,7 @@ public class MapControl : UserControl
         catch (Exception ex)
         {
             if (!IsDisposed)
-                ShowMessage("Could not load the map.", ex.Message);
+                ShowMessage("Could not load the map.", ErrorMessages.Report(ex, "Loading the map"));
             return;
         }
 

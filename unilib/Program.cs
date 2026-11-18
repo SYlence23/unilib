@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using unilib.Data;
 using unilib.Services;
+using unilib.UI;
 using unilib.UI.Forms;
 
 namespace unilib;
@@ -57,8 +58,10 @@ static class Program
         {
             // Running on an old schema would crash later, so stop here.
             _log.LogCritical(ex, "Database migration failed, UniLib cannot start");
-            MessageBox.Show("Failed to update the database, so UniLib cannot start.\n\n" + ex.Message,
-                "UniLib", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            var reason = ErrorMessages.IsConnectionProblem(ex)
+                ? "UniLib cannot connect to the database. Check the connection string in appsettings.Local.json."
+                : "Failed to update the database, so UniLib cannot start.";
+            ShowError($"{reason}\n\nDetails were written to the log in {AppLog.Directory}.");
             return;
         }
 
@@ -68,8 +71,7 @@ static class Program
         }
         catch (Exception ex)
         {
-            _log.LogError(ex, "Could not make sure an admin account exists");
-            MessageBox.Show("Failed to seed admin user: " + ex.Message);
+            ShowError("Failed to create the admin account: " + ErrorMessages.Report(ex, "Creating the admin account", _log));
         }
 
         try
@@ -78,8 +80,7 @@ static class Program
         }
         catch (Exception ex)
         {
-            _log.LogError(ex, "Could not mark overdue loans");
-            MessageBox.Show("Failed to update overdue loans: " + ex.Message);
+            ShowError("Failed to update overdue loans: " + ErrorMessages.Report(ex, "Marking overdue loans", _log));
         }
 
         var context = new ApplicationContext();
@@ -91,11 +92,13 @@ static class Program
     private static void ReportUnexpectedError(Exception ex)
     {
         _log.LogError(ex, "Unhandled exception on the UI thread");
-        MessageBox.Show(
-            "Something went wrong. UniLib can keep running, but the last action may not have finished.\n\n" +
-            $"Details were written to the log in {AppLog.Directory}.",
-            "UniLib", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        ShowError("Something went wrong. UniLib can keep running, but the last action may not have finished.\n\n" +
+            $"Details were written to the log in {AppLog.Directory}.");
     }
+
+    // Shown texts never carry raw exception details or stack traces: those go to the log.
+    private static void ShowError(string message) =>
+        MessageBox.Show(message, "UniLib", MessageBoxButtons.OK, MessageBoxIcon.Error);
 
     // The login and main windows take turns: signing out goes back to the login window,
     // closing either window quits the app.
@@ -123,7 +126,7 @@ static class Program
         catch (Exception ex)
         {
             _log.LogCritical(ex, "Could not open the main window");
-            MessageBox.Show("Error launching main window: " + ex.Message + "\n" + ex.StackTrace, "Fatal Error");
+            ShowError($"Could not open the main window.\n\nDetails were written to the log in {AppLog.Directory}.");
             context.ExitThread();
             return;
         }

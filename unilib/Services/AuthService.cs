@@ -26,7 +26,7 @@ public class AuthService : ServiceBase
         string firstName, string lastName, string email, string password, string? studentId = null)
     {
         if (string.IsNullOrWhiteSpace(password))
-            throw new InvalidOperationException("Password is required.");
+            throw new ServiceException("Password is required.");
 
         email = NormalizeEmail(email);
 
@@ -34,11 +34,11 @@ public class AuthService : ServiceBase
         if (await db.Users.AnyAsync(u => u.Email == email))
         {
             Logger.LogWarning("Registration refused: {Email} is already registered", AppLog.MaskEmail(email));
-            throw new InvalidOperationException($"A user with email '{email}' already exists.");
+            throw new ServiceException($"A user with email '{email}' already exists.");
         }
 
         var studentRole = await db.Roles.SingleOrDefaultAsync(r => r.Name == RoleNames.Student)
-            ?? throw new InvalidOperationException($"Role '{RoleNames.Student}' is missing in the database.");
+            ?? throw new ServiceException($"Role '{RoleNames.Student}' is missing in the database.");
 
         var user = new User
         {
@@ -93,7 +93,7 @@ public class AuthService : ServiceBase
     public async Task ChangePasswordAsync(int userId, string oldPassword, string newPassword)
     {
         if (string.IsNullOrWhiteSpace(newPassword))
-            throw new InvalidOperationException("New password is required.");
+            throw new ServiceException("New password is required.");
 
         using var db = CreateDb();
         var user = await db.Users.FindAsync(userId) ?? throw NotFound<User>(userId);
@@ -101,7 +101,7 @@ public class AuthService : ServiceBase
         if (_hasher.VerifyHashedPassword(user, user.PasswordHash, oldPassword) == PasswordVerificationResult.Failed)
         {
             Logger.LogWarning("Password change refused for user {UserId}: wrong current password", userId);
-            throw new InvalidOperationException("Current password is incorrect.");
+            throw new ServiceException("Current password is incorrect.");
         }
 
         user.PasswordHash = _hasher.HashPassword(user, newPassword);

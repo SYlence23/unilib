@@ -70,7 +70,7 @@ public class AuthServiceLoggingTests : IDisposable
     {
         var user = await _auth.RegisterAsync("Ivan", "Petrenko", Email, Password);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(
+        await Assert.ThrowsAsync<ServiceException>(
             () => _auth.ChangePasswordAsync(user.Id, "Not-my-password", "NewSecret1!"));
 
         Assert.Contains(_log.Entries, e => e.Level == LogLevel.Warning && e.Message.Contains("wrong current password"));

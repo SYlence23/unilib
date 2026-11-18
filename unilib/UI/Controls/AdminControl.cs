@@ -86,7 +86,7 @@ public class AdminControl : UserControl
         {
             if (IsDisposed)
                 return;
-            ShowInQueue(Ui.EmptyState("Could not load the admin data.", ex.Message));
+            ShowInQueue(Ui.EmptyState("Could not load the admin data.", ErrorMessages.Report(ex, "Loading the admin data")));
         }
     }
 
@@ -183,7 +183,7 @@ public class AdminControl : UserControl
             }
             catch (Exception ex)
             {
-                errors.Add($"{Ui.RequestId(reservation.Id)}: {ex.Message}");
+                errors.Add($"{Ui.RequestId(reservation.Id)}: {ErrorMessages.Report(ex, $"Updating reservation {reservation.Id}")}");
             }
         }
         if (IsDisposed)
@@ -219,7 +219,7 @@ public class AdminControl : UserControl
         catch (Exception ex)
         {
             if (!IsDisposed)
-                Ui.Toast(this, ex.Message);
+                Ui.Toast(this, ErrorMessages.Report(ex, "Loading categories and libraries"));
             return;
         }
         if (IsDisposed)

@@ -256,7 +256,7 @@ public class LoginForm : MaterialForm
         }
         catch (Exception ex)
         {
-            Ui.ShowError(_loginError, ex.Message);
+            Ui.ShowError(_loginError, ErrorMessages.Report(ex, "Signing in"));
         }
         finally
         {
@@ -297,7 +297,7 @@ public class LoginForm : MaterialForm
         }
         catch (Exception ex)
         {
-            Ui.ShowError(_registerError, ex.Message);
+            Ui.ShowError(_registerError, ErrorMessages.Report(ex, "Registering"));
         }
         finally
         {

@@ -57,7 +57,7 @@ public class LoanService : ServiceBase
     {
         var today = Today;
         if (dueDate <= today)
-            throw new InvalidOperationException("The due date must be after today.");
+            throw new ServiceException("The due date must be after today.");
 
         using var db = CreateDb();
         if (!await db.Users.AnyAsync(u => u.Id == userId))
@@ -67,11 +67,11 @@ public class LoanService : ServiceBase
 
         var onLoan = await db.UserBooks.CountAsync(ub => ub.BookIsbn == isbn && ub.ReturnDate == null);
         if (onLoan >= amount)
-            throw new InvalidOperationException("No copies of this book are available.");
+            throw new ServiceException("No copies of this book are available.");
 
         var userLoans = await db.UserBooks.CountAsync(ub => ub.UserId == userId && ub.ReturnDate == null);
         if (userLoans >= LibraryRules.MaxActiveLoans)
-            throw new InvalidOperationException($"Loan limit reached ({LibraryRules.MaxActiveLoans} books on loan).");
+            throw new ServiceException($"Loan limit reached ({LibraryRules.MaxActiveLoans} books on loan).");
 
         var loan = new UserBook
         {
@@ -95,7 +95,7 @@ public class LoanService : ServiceBase
         var loan = await db.UserBooks.FindAsync(loanId) ?? throw NotFound<UserBook>(loanId);
 
         if (loan.ReturnDate != null)
-            throw new InvalidOperationException("This book has already been returned.");
+            throw new ServiceException("This book has already been returned.");
 
         loan.ReturnDate = Today;
         loan.Status = LoanStatus.Returned;

@@ -105,7 +105,7 @@ public class ChangePasswordForm : MaterialForm
         }
         catch (Exception ex)
         {
-            Ui.ShowError(_error, ex.Message);
+            Ui.ShowError(_error, ErrorMessages.Report(ex, "Changing the password"));
         }
         finally
         {

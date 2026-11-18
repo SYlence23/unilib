@@ -184,7 +184,7 @@ public class AddBookForm : MaterialForm
         }
         catch (Exception ex)
         {
-            Ui.ShowError(_error, ex.Message);
+            Ui.ShowError(_error, ErrorMessages.Report(ex, "Adding a book"));
         }
         finally
         {
