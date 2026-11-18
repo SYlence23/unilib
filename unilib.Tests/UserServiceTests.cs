@@ -43,7 +43,7 @@ public class UserServiceTests : IDisposable
         var user = (await _users.GetByIdAsync(_userId))!;
         user.Email = "taken@uni.edu";
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => _users.UpdateAsync(user));
+        await Assert.ThrowsAsync<ServiceException>(() => _users.UpdateAsync(user));
     }
 
     [Fact]
@@ -52,7 +52,7 @@ public class UserServiceTests : IDisposable
         var user = (await _users.GetByIdAsync(_userId))!;
         user.Id = 9999;
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => _users.UpdateAsync(user));
+        await Assert.ThrowsAsync<ServiceException>(() => _users.UpdateAsync(user));
     }
 
     [Fact]

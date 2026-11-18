@@ -107,7 +107,7 @@ public class CatalogControl : UserControl
         {
             if (IsDisposed)
                 return;
-            ShowInBody(Ui.EmptyState("Could not load the catalog.", ex.Message));
+            ShowInBody(Ui.EmptyState("Could not load the catalog.", ErrorMessages.Report(ex, "Loading the catalog")));
         }
     }
 
@@ -383,7 +383,7 @@ public class CatalogControl : UserControl
         catch (Exception ex)
         {
             if (!IsDisposed)
-                Ui.Toast(this, ex.Message);
+                Ui.Toast(this, ErrorMessages.Report(ex, "Reserving a book"));
         }
         finally
         {
@@ -402,7 +402,7 @@ public class CatalogControl : UserControl
         catch (Exception ex)
         {
             if (!IsDisposed)
-                Ui.Toast(this, ex.Message);
+                Ui.Toast(this, ErrorMessages.Report(ex, "Saving a book to favorites"));
             return null;
         }
     }

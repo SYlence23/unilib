@@ -98,7 +98,7 @@ public class BookServiceTests : IDisposable
     [Fact]
     public async Task AddWithAuthors_DuplicateIsbn_StoresNothing()
     {
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        var ex = await Assert.ThrowsAsync<ServiceException>(() =>
             _books.AddWithAuthorsAsync(new Book { Isbn = "111", Title = "Copy" }, "Fiction", new[] { ("Frank", "Herbert") }));
 
         Assert.Contains("already catalogued", ex.Message);
@@ -110,7 +110,7 @@ public class BookServiceTests : IDisposable
     public async Task AddWithAuthors_FailedSave_StoresNoCategoryOrAuthors()
     {
         // CategoryId 999 doesn't exist, so the save fails on the foreign key.
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        await Assert.ThrowsAsync<ServiceException>(() =>
             _books.AddWithAuthorsAsync(new Book { Isbn = "444", Title = "Broken", CategoryId = 999 }, null, new[] { ("Frank", "Herbert") }));
 
         Assert.Null(await _books.GetByIsbnAsync("444"));
@@ -121,7 +121,7 @@ public class BookServiceTests : IDisposable
     public async Task AddWithAuthors_FailedSaveWithNewCategory_StoresNoCategoryAndRetryWorks()
     {
         // LibraryId 999 doesn't exist, so the save fails after the new category was prepared.
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        await Assert.ThrowsAsync<ServiceException>(() =>
             _books.AddWithAuthorsAsync(new Book { Isbn = "444", Title = "Dune", LibraryId = 999 }, "Fiction", new[] { ("Frank", "Herbert") }));
 
         Assert.Single(await new CategoryService(_db.Create).GetAllAsync());

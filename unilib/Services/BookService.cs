@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using unilib.Data;
 using unilib.Models;
 
@@ -50,7 +51,11 @@ public class BookService : ServiceBase
         return Math.Max((amount ?? 0) - onLoan, 0);
     }
 
-    public Task<Book> CreateAsync(Book book) => AddEntityAsync(book);
+    public Task<Book> CreateAsync(Book book)
+    {
+        ValidateBook(book);
+        return AddEntityAsync(book);
+    }
 
     public const string DuplicateIsbnMessage = "A book with this ISBN is already catalogued.";
 
@@ -61,16 +66,24 @@ public class BookService : ServiceBase
     // locale and may not fold Cyrillic; OrdinalIgnoreCase behaves the same everywhere.
     public async Task<Book> AddWithAuthorsAsync(Book book, string? newCategory, IEnumerable<(string First, string Last)> authors)
     {
+        ValidateBook(book);
+        var authorNames = authors
+            .Select(a => (First: Validation.Optional(a.First, "Author first name", Validation.NameLength) ?? "",
+                Last: Validation.Required(a.Last, "Author last name", Validation.NameLength)))
+            .ToList();
+        if (authorNames.Count == 0)
+            throw new ServiceException("At least one author is required.");
+
         using var db = CreateDb();
         if (await IsbnExistsAsync(book.Isbn))
-            throw new InvalidOperationException(DuplicateIsbnMessage);
+            throw new ServiceException(DuplicateIsbnMessage);
 
-        var categoryName = newCategory?.Trim() ?? "";
+        var categoryName = Validation.Optional(newCategory, "Category", Validation.CategoryLength) ?? "";
         if (categoryName.Length > 0)
             book.Category = FindByName(await db.Categories.ToListAsync(), categoryName)
                 ?? new Category { Name = categoryName };
 
-        var unique = authors.DistinctBy(a => $"{a.First}\n{a.Last}", StringComparer.OrdinalIgnoreCase).ToList();
+        var unique = authorNames.DistinctBy(a => $"{a.First}\n{a.Last}", StringComparer.OrdinalIgnoreCase).ToList();
         if (unique.Count > 0)
         {
             var known = await db.Authors.ToListAsync();
@@ -89,20 +102,22 @@ public class BookService : ServiceBase
         {
             await SaveAsync(db, nameof(Book));
         }
-        catch (InvalidOperationException ex)
+        catch (ServiceException ex)
         {
             // Someone else saved the same ISBN or category between our checks and the save.
             if (await IsbnExistsAsync(book.Isbn))
-                throw new InvalidOperationException(DuplicateIsbnMessage, ex);
+                throw new ServiceException(DuplicateIsbnMessage, ex);
             if (categoryName.Length > 0 && book.Category.Id == 0)
             {
                 using var check = CreateDb();
                 if (FindByName(await check.Categories.ToListAsync(), categoryName) != null)
-                    throw new InvalidOperationException(
+                    throw new ServiceException(
                         $"The category '{categoryName}' was just added by someone else. Press Add again to use it.", ex);
             }
             throw;
         }
+        Logger.LogInformation("Added book {Isbn} with {AuthorCount} authors, by user {ActorId}",
+            book.Isbn, unique.Count, ActorId);
         return book;
     }
 
@@ -115,7 +130,21 @@ public class BookService : ServiceBase
     private static Category? FindByName(IEnumerable<Category> categories, string name) =>
         categories.FirstOrDefault(c => string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase));
 
-    public Task UpdateAsync(Book book) => UpdateEntityAsync(book, book.Isbn);
+    public Task UpdateAsync(Book book)
+    {
+        ValidateBook(book);
+        return UpdateEntityAsync(book, book.Isbn);
+    }
+
+    // Cleans the ISBN and title in place, or throws ServiceException.
+    private static void ValidateBook(Book book)
+    {
+        book.Isbn = Validation.Isbn(book.Isbn);
+        book.Title = Validation.Required(book.Title, "Title", Validation.TitleLength);
+        book.Language = Validation.Optional(book.Language, "Language", Validation.LanguageLength);
+        if (book.Amount < 0)
+            throw new ServiceException("Copies must be 0 or more.");
+    }
 
     public Task DeleteAsync(string isbn) => DeleteEntityAsync<Book>(isbn);
 

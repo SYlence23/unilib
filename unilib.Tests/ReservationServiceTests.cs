@@ -34,8 +34,8 @@ public class ReservationServiceTests : IDisposable
     [Fact]
     public async Task Create_UnknownBookOrUser_Throws()
     {
-        await Assert.ThrowsAsync<InvalidOperationException>(() => _reservations.CreateAsync(_userId, "999"));
-        await Assert.ThrowsAsync<InvalidOperationException>(() => _reservations.CreateAsync(9999, "111"));
+        await Assert.ThrowsAsync<ServiceException>(() => _reservations.CreateAsync(_userId, "999"));
+        await Assert.ThrowsAsync<ServiceException>(() => _reservations.CreateAsync(9999, "111"));
     }
 
     [Fact]
@@ -45,7 +45,7 @@ public class ReservationServiceTests : IDisposable
         _db.AddReservation(_userId, "111", ReservationStatus.Active, Today);
         _db.AddReservation(_userId, "111", ReservationStatus.Active, Today);
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _reservations.CreateAsync(_userId, "111"));
+        var ex = await Assert.ThrowsAsync<ServiceException>(() => _reservations.CreateAsync(_userId, "111"));
         Assert.Equal(ReservationService.LimitReachedMessage, ex.Message);
     }
 
@@ -99,7 +99,7 @@ public class ReservationServiceTests : IDisposable
 
         if (expected == null)
         {
-            await Assert.ThrowsAsync<InvalidOperationException>(Run);
+            await Assert.ThrowsAsync<ServiceException>(Run);
             Assert.Equal(from, await StatusOf(id));
         }
         else
@@ -112,7 +112,7 @@ public class ReservationServiceTests : IDisposable
     [Fact]
     public async Task StatusChange_UnknownReservation_Throws()
     {
-        await Assert.ThrowsAsync<InvalidOperationException>(() => _reservations.ConfirmAsync(9999));
+        await Assert.ThrowsAsync<ServiceException>(() => _reservations.ConfirmAsync(9999));
     }
 
     [Fact]

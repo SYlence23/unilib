@@ -35,14 +35,14 @@ public class LoanServiceTests : IDisposable
     [Fact]
     public async Task Create_UnknownBook_Throws()
     {
-        await Assert.ThrowsAsync<InvalidOperationException>(
+        await Assert.ThrowsAsync<ServiceException>(
             () => _loans.CreateAsync(_userId, "999", Today.AddDays(14)));
     }
 
     [Fact]
     public async Task Create_UnknownUser_Throws()
     {
-        await Assert.ThrowsAsync<InvalidOperationException>(
+        await Assert.ThrowsAsync<ServiceException>(
             () => _loans.CreateAsync(9999, "111", Today.AddDays(14)));
     }
 
@@ -52,7 +52,7 @@ public class LoanServiceTests : IDisposable
         // Book 111 has one copy.
         await _loans.CreateAsync(_userId, "111", Today.AddDays(14));
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+        var ex = await Assert.ThrowsAsync<ServiceException>(
             () => _loans.CreateAsync(_userId, "111", Today.AddDays(14)));
         Assert.Contains("No copies", ex.Message);
     }
@@ -73,7 +73,7 @@ public class LoanServiceTests : IDisposable
     [InlineData(-3)]
     public async Task Create_DueDateNotAfterToday_Throws(int days)
     {
-        await Assert.ThrowsAsync<InvalidOperationException>(
+        await Assert.ThrowsAsync<ServiceException>(
             () => _loans.CreateAsync(_userId, "111", Today.AddDays(days)));
         Assert.Empty(await _loans.GetActiveAsync());
     }
@@ -87,7 +87,7 @@ public class LoanServiceTests : IDisposable
             await _loans.CreateAsync(_userId, $"B{i}", Today.AddDays(14));
         }
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+        var ex = await Assert.ThrowsAsync<ServiceException>(
             () => _loans.CreateAsync(_userId, "111", Today.AddDays(14)));
         Assert.Contains("Loan limit", ex.Message);
     }
@@ -123,7 +123,7 @@ public class LoanServiceTests : IDisposable
         var loan = await _loans.CreateAsync(_userId, "111", Today.AddDays(14));
         await _loans.ReturnAsync(loan.Id);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => _loans.ReturnAsync(loan.Id));
+        await Assert.ThrowsAsync<ServiceException>(() => _loans.ReturnAsync(loan.Id));
     }
 
     [Fact]

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using unilib.Data;
 using unilib.Models;
 
@@ -62,7 +63,10 @@ public class ReservationService : ServiceBase
         var open = await db.Reservations.CountAsync(r => r.UserId == userId
             && (r.Status == ReservationStatus.Pending || r.Status == ReservationStatus.Active));
         if (open >= LibraryRules.MaxOpenReservations)
-            throw new InvalidOperationException(LimitReachedMessage);
+        {
+            Logger.LogInformation("Reservation refused for user {UserId}: {Open} open requests", userId, open);
+            throw new ServiceException(LimitReachedMessage);
+        }
 
         var reservation = new Reservation
         {
@@ -74,6 +78,8 @@ public class ReservationService : ServiceBase
 
         db.Reservations.Add(reservation);
         await SaveAsync(db, nameof(Reservation));
+        Logger.LogInformation("Reservation {ReservationId}: book {Isbn} for user {UserId}, by user {ActorId}",
+            reservation.Id, isbn, userId, ActorId);
         return reservation;
     }
 
@@ -98,11 +104,14 @@ public class ReservationService : ServiceBase
         var reservation = await db.Reservations.FindAsync(id) ?? throw NotFound<Reservation>(id);
 
         if (!allowedFrom.Contains(reservation.Status))
-            throw new InvalidOperationException(
+            throw new ServiceException(
                 $"Cannot change reservation from '{reservation.Status}' to '{newStatus}'.");
 
+        var oldStatus = reservation.Status;
         reservation.Status = newStatus;
         await SaveAsync(db, nameof(Reservation));
+        Logger.LogInformation("Reservation {ReservationId}: {OldStatus} -> {NewStatus}, by user {ActorId}",
+            id, oldStatus, newStatus, ActorId);
     }
 
     private static IQueryable<Reservation> WithDetails(IQueryable<Reservation> reservations) =>

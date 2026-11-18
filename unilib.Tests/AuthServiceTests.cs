@@ -30,7 +30,7 @@ public class AuthServiceTests : IDisposable
     {
         await _auth.RegisterAsync("Ivan", "Petrenko", "ivan@uni.edu", "Secret123!");
 
-        await Assert.ThrowsAsync<InvalidOperationException>(
+        await Assert.ThrowsAsync<ServiceException>(
             () => _auth.RegisterAsync("Other", "Person", "IVAN@uni.edu", "Another1!"));
     }
 
@@ -75,7 +75,7 @@ public class AuthServiceTests : IDisposable
     {
         var user = await _auth.RegisterAsync("Ivan", "Petrenko", "ivan@uni.edu", "Secret123!");
 
-        await Assert.ThrowsAsync<InvalidOperationException>(
+        await Assert.ThrowsAsync<ServiceException>(
             () => _auth.ChangePasswordAsync(user.Id, "wrong", "NewSecret1!"));
     }
 

@@ -36,13 +36,13 @@ public class FavoriteServiceTests : IDisposable
     {
         await _favorites.AddAsync(_userId, "111");
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => _favorites.AddAsync(_userId, "111"));
+        await Assert.ThrowsAsync<ServiceException>(() => _favorites.AddAsync(_userId, "111"));
     }
 
     [Fact]
     public async Task Remove_NotSaved_Throws()
     {
-        await Assert.ThrowsAsync<InvalidOperationException>(() => _favorites.RemoveAsync(_userId, "111"));
+        await Assert.ThrowsAsync<ServiceException>(() => _favorites.RemoveAsync(_userId, "111"));
     }
 
     [Fact]
