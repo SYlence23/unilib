@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="unilib.Tests/unilib.Tests.csproj" />
+  <Project Path="unilib/unilib.csproj" />
+</Solution>
