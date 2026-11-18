@@ -36,9 +36,23 @@ public class AuthorService : ServiceBase
             .ToListAsync();
     }
 
-    public Task<Author> CreateAsync(Author author) => AddEntityAsync(author);
+    public Task<Author> CreateAsync(Author author)
+    {
+        ValidateAuthor(author);
+        return AddEntityAsync(author);
+    }
 
-    public Task UpdateAsync(Author author) => UpdateEntityAsync(author, author.Id);
+    public Task UpdateAsync(Author author)
+    {
+        ValidateAuthor(author);
+        return UpdateEntityAsync(author, author.Id);
+    }
+
+    private static void ValidateAuthor(Author author)
+    {
+        author.FirstName = Validation.Optional(author.FirstName, "First name", Validation.NameLength) ?? "";
+        author.LastName = Validation.Required(author.LastName, "Last name", Validation.NameLength);
+    }
 
     public Task DeleteAsync(int id) => DeleteEntityAsync<Author>(id);
 }

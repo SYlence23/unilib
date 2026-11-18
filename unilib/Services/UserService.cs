@@ -42,11 +42,11 @@ public class UserService : ServiceBase
         existing.RoleId = user.RoleId;
         existing.FacultyId = user.FacultyId;
         existing.LibraryId = user.LibraryId;
-        existing.FirstName = user.FirstName;
-        existing.LastName = user.LastName;
-        existing.StudentId = user.StudentId;
-        existing.Email = user.Email.Trim().ToLowerInvariant();
-        existing.Phone = user.Phone;
+        existing.FirstName = Validation.Required(user.FirstName, "First name", Validation.NameLength);
+        existing.LastName = Validation.Required(user.LastName, "Last name", Validation.NameLength);
+        existing.StudentId = Validation.Optional(user.StudentId, "Student ID", Validation.StudentIdLength);
+        existing.Email = Validation.Email(user.Email);
+        existing.Phone = Validation.Phone(user.Phone);
 
         await SaveAsync(db, nameof(User));
         Logger.LogInformation("Updated user {UserId}, by user {ActorId}", user.Id, ActorId);

@@ -25,10 +25,11 @@ public class AuthService : ServiceBase
     public async Task<User> RegisterAsync(
         string firstName, string lastName, string email, string password, string? studentId = null)
     {
-        if (string.IsNullOrWhiteSpace(password))
-            throw new ServiceException("Password is required.");
-
-        email = NormalizeEmail(email);
+        firstName = Validation.Required(firstName, "First name", Validation.NameLength);
+        lastName = Validation.Required(lastName, "Last name", Validation.NameLength);
+        email = Validation.Email(email);
+        studentId = Validation.Optional(studentId, "Student ID", Validation.StudentIdLength);
+        Validation.Password(password);
 
         using var db = CreateDb();
         if (await db.Users.AnyAsync(u => u.Email == email))
@@ -43,10 +44,10 @@ public class AuthService : ServiceBase
         var user = new User
         {
             RoleId = studentRole.Id,
-            FirstName = firstName.Trim(),
-            LastName = lastName.Trim(),
+            FirstName = firstName,
+            LastName = lastName,
             Email = email,
-            StudentId = string.IsNullOrWhiteSpace(studentId) ? null : studentId.Trim(),
+            StudentId = studentId,
             CreatedAt = DateTime.UtcNow
         };
         user.PasswordHash = _hasher.HashPassword(user, password);
@@ -61,7 +62,14 @@ public class AuthService : ServiceBase
     // Returns the user with Role loaded, or null if the email or password is wrong.
     public async Task<User?> LoginAsync(string email, string password)
     {
-        email = NormalizeEmail(email);
+        email = NormalizeEmail(email ?? "");
+        // Input no account could have: refuse it before touching the database or the hasher.
+        if (email.Length == 0 || email.Length > Validation.EmailLength
+            || string.IsNullOrEmpty(password) || password.Length > Validation.MaxPasswordLength)
+        {
+            Logger.LogWarning("Failed sign-in for {Email}: invalid input", AppLog.MaskEmail(email));
+            return null;
+        }
 
         using var db = CreateDb();
         var user = await db.Users.Include(u => u.Role).SingleOrDefaultAsync(u => u.Email == email);
@@ -92,8 +100,11 @@ public class AuthService : ServiceBase
 
     public async Task ChangePasswordAsync(int userId, string oldPassword, string newPassword)
     {
-        if (string.IsNullOrWhiteSpace(newPassword))
-            throw new ServiceException("New password is required.");
+        Validation.Password(newPassword);
+        if (newPassword == DefaultAdminPassword)
+            throw new ServiceException("This password is not allowed.");
+        if (newPassword == oldPassword)
+            throw new ServiceException("Choose a password different from the current one.");
 
         using var db = CreateDb();
         var user = await db.Users.FindAsync(userId) ?? throw NotFound<User>(userId);
