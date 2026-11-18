@@ -73,3 +73,41 @@ jobs:
           name: test-results
           path: TestResults
           retention-days: 14
+
+  quality:
+    name: Code quality
+    runs-on: windows-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v7
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Restore dependencies
+        run: dotnet restore unilib.slnx
+
+      - name: Check code formatting
+        run: dotnet format whitespace unilib.slnx --verify-no-changes --verbosity diagnostic
+
+      - name: Check for vulnerable NuGet packages
+        shell: pwsh
+        run: |
+          $json = dotnet package list --project unilib.slnx --vulnerable --include-transitive --format json | Out-String
+          if ($LASTEXITCODE -ne 0) { Write-Output $json; exit $LASTEXITCODE }
+          $vulnerable = @(($json | ConvertFrom-Json).projects |
+            ForEach-Object { $_.frameworks } | Where-Object { $_ } |
+            ForEach-Object { @($_.topLevelPackages) + @($_.transitivePackages) } |
+            Where-Object { $_ -and $_.vulnerabilities })
+          if ($vulnerable.Count -gt 0) {
+            $vulnerable | ForEach-Object {
+              $severity = ($_.vulnerabilities | ForEach-Object { $_.severity }) -join ', '
+              Write-Output "::error title=Vulnerable package::$($_.id) $($_.resolvedVersion) ($severity)"
+            }
+            exit 1
+          }
+          Write-Output 'No known vulnerable packages.'
