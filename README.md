@@ -152,6 +152,7 @@ docs/                   звіти етапів і документація
 | [Security.md](docs/Security.md) | журналювання, обробка помилок, безпека (етап 9) |
 | [Testing.md](docs/Testing.md) | фінальне тестування (етап 10) |
 | [Demo.md](docs/Demo.md) | сценарій демонстрації |
+| [presentation/](docs/presentation/) | фінальна презентація (.pptx і .pdf) |
 
 ## Відомі обмеження
 
