@@ -19,6 +19,8 @@ dotnet test unilib.slnx --configuration Release --collect "XPlat Code Coverage" 
 
 **201 тест, 201 пройшов, 0 не пройшов, 0 пропущено.**
 
+Докладно про те, що перевіряє кожен файл, розповідає [Tests.md](Tests.md).
+
 | Набір тестів | Тестів | Що перевіряє |
 |---|---:|---|
 | `ValidationTests` | 44 | обов'язкові поля, довжина, email, пароль, ISBN, телефон, координати |

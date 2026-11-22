@@ -145,9 +145,12 @@ docs/                   звіти етапів і документація
 | [Report_task_3.md](docs/Report_task_3.md) | UML-моделювання |
 | [Report_task_4.md](docs/Report_task_4.md) | архітектура і модель даних |
 | [Report_task_5.md](docs/Report_task_5.md) | початкова структура проєкту |
-| [CI.md](docs/CI.md) | неперервна інтеграція |
-| [Security.md](docs/Security.md) | журналювання, обробка помилок, безпека |
-| [Testing.md](docs/Testing.md) | фінальне тестування |
+| [Report_task_6.md](docs/Report_task_6.md) | ітеративна реалізація функціональності |
+| [Report_task_7.md](docs/Report_task_7.md) | тестування та забезпечення якості |
+| [Tests.md](docs/Tests.md) | що перевіряє кожен файл тестів |
+| [Report_task_8.md](docs/Report_task_8.md) · [CI.md](docs/CI.md) | неперервна інтеграція |
+| [Security.md](docs/Security.md) | журналювання, обробка помилок, безпека (етап 9) |
+| [Testing.md](docs/Testing.md) | фінальне тестування (етап 10) |
 | [Demo.md](docs/Demo.md) | сценарій демонстрації |
 
 ## Відомі обмеження
