@@ -58,6 +58,8 @@ jobs:
           targetdir: TestResults/coverage-report
           reporttypes: HtmlInline;MarkdownSummaryGithub
           assemblyfilters: +unilib
+          # EF migrations and source-generated files are not code anyone wrote by hand.
+          filefilters: -*Migrations*;-*/obj/*;-*\obj\*
 
       - name: Add coverage to the job summary
         if: ${{ !cancelled() }}
