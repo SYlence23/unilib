@@ -40,6 +40,12 @@ CI працює на GitHub Actions. Опис пайплайна — у
 щотижня відкриває PR з оновленнями NuGet-пакетів і GitHub Actions; кожен
 такий PR теж проходить CI.
 
+## Сканування безпеки (CodeQL)
+
+Окремий workflow [`.github/workflows/codeql.yml`](../.github/workflows/codeql.yml) аналізує C#-код
+набором запитів `security-extended`: на кожен PR і push у `main`, а також щопонеділка.
+Знахідки показуються в PR і на вкладці **Security** → **Code scanning**.
+
 ## Як повторити перевірки локально
 
 ```powershell

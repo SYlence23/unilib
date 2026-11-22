@@ -132,7 +132,7 @@ public class LoginForm : MaterialForm
 
         _studentId = Ui.TextField("Student ID (Optional)", FieldWidth);
         _registerEmail = Ui.TextField("Email", FieldWidth);
-        _registerPassword = PasswordField("Password (at least 6 characters)");
+        _registerPassword = PasswordField($"Password (at least {Validation.MinPasswordLength} characters)");
         _registerError = Ui.ErrorLabel(FieldWidth);
         view.Controls.Add(_studentId);
         view.Controls.Add(_registerEmail);
@@ -256,7 +256,7 @@ public class LoginForm : MaterialForm
         }
         catch (Exception ex)
         {
-            Ui.ShowError(_loginError, ex.Message);
+            Ui.ShowError(_loginError, ErrorMessages.Report(ex, "Signing in"));
         }
         finally
         {
@@ -275,8 +275,8 @@ public class LoginForm : MaterialForm
             error = "First and last name are required.";
         else if (!Regex.IsMatch(email, @"^\S+@\S+\.\S+$"))
             error = "Enter a valid email address.";
-        else if (_registerPassword.Text.Length < 6)
-            error = "Password must be at least 6 characters.";
+        else if (_registerPassword.Text.Length < Validation.MinPasswordLength)
+            error = $"Password must be at least {Validation.MinPasswordLength} characters.";
         if (error != null)
         {
             Ui.ShowError(_registerError, error);
@@ -297,7 +297,7 @@ public class LoginForm : MaterialForm
         }
         catch (Exception ex)
         {
-            Ui.ShowError(_registerError, ex.Message);
+            Ui.ShowError(_registerError, ErrorMessages.Report(ex, "Registering"));
         }
         finally
         {

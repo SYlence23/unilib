@@ -39,7 +39,7 @@ public class ChangePasswordForm : MaterialForm
             Padding = new Padding(21, 20, 21, 0)
         };
         _current = Ui.TextField("Current password", FieldWidth, password: true);
-        _new = Ui.TextField("New password (at least 6 characters)", FieldWidth, password: true);
+        _new = Ui.TextField($"New password (at least {Validation.MinPasswordLength} characters)", FieldWidth, password: true);
         _confirm = Ui.TextField("Confirm new password", FieldWidth, password: true);
         _error = Ui.ErrorLabel(FieldWidth);
         body.Controls.AddRange(new Control[] { _current, _new, _confirm, _error });
@@ -83,8 +83,8 @@ public class ChangePasswordForm : MaterialForm
         string? error = null;
         if (_current.Text.Length == 0)
             error = "Enter your current password.";
-        else if (_new.Text.Length < 6)
-            error = "New password must be at least 6 characters.";
+        else if (_new.Text.Length < Validation.MinPasswordLength)
+            error = $"New password must be at least {Validation.MinPasswordLength} characters.";
         else if (_new.Text != _confirm.Text)
             error = "Passwords do not match.";
         else if (_new.Text == AuthService.DefaultAdminPassword)
@@ -105,7 +105,7 @@ public class ChangePasswordForm : MaterialForm
         }
         catch (Exception ex)
         {
-            Ui.ShowError(_error, ex.Message);
+            Ui.ShowError(_error, ErrorMessages.Report(ex, "Changing the password"));
         }
         finally
         {

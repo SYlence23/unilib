@@ -78,7 +78,7 @@ public class ProfileControl : UserControl
         {
             if (IsDisposed)
                 return;
-            Fill(_bookingsPage, Ui.EmptyState("Could not load your bookings.", ex.Message));
+            Fill(_bookingsPage, Ui.EmptyState("Could not load your bookings.", ErrorMessages.Report(ex, "Loading bookings")));
         }
     }
 
@@ -144,7 +144,7 @@ public class ProfileControl : UserControl
             catch (Exception ex)
             {
                 if (!IsDisposed)
-                    Ui.Toast(this, ex.Message);
+                    Ui.Toast(this, ErrorMessages.Report(ex, "Cancelling a reservation"));
             }
         };
         UpdateActions();
@@ -200,7 +200,7 @@ public class ProfileControl : UserControl
             catch (Exception ex)
             {
                 if (!IsDisposed)
-                    Ui.Toast(this, ex.Message);
+                    Ui.Toast(this, ErrorMessages.Report(ex, "Reserving a book"));
             }
         };
         btnRemove.Click += async (s, e) =>
@@ -216,7 +216,7 @@ public class ProfileControl : UserControl
             catch (Exception ex)
             {
                 if (!IsDisposed)
-                    Ui.Toast(this, ex.Message);
+                    Ui.Toast(this, ErrorMessages.Report(ex, "Saving a book to favorites"));
             }
         };
         UpdateActions();

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using unilib.Data;
 using unilib.Models;
 
@@ -56,7 +57,7 @@ public class LoanService : ServiceBase
     {
         var today = Today;
         if (dueDate <= today)
-            throw new InvalidOperationException("The due date must be after today.");
+            throw new ServiceException("The due date must be after today.");
 
         using var db = CreateDb();
         if (!await db.Users.AnyAsync(u => u.Id == userId))
@@ -66,11 +67,11 @@ public class LoanService : ServiceBase
 
         var onLoan = await db.UserBooks.CountAsync(ub => ub.BookIsbn == isbn && ub.ReturnDate == null);
         if (onLoan >= amount)
-            throw new InvalidOperationException("No copies of this book are available.");
+            throw new ServiceException("No copies of this book are available.");
 
         var userLoans = await db.UserBooks.CountAsync(ub => ub.UserId == userId && ub.ReturnDate == null);
         if (userLoans >= LibraryRules.MaxActiveLoans)
-            throw new InvalidOperationException($"Loan limit reached ({LibraryRules.MaxActiveLoans} books on loan).");
+            throw new ServiceException($"Loan limit reached ({LibraryRules.MaxActiveLoans} books on loan).");
 
         var loan = new UserBook
         {
@@ -83,6 +84,8 @@ public class LoanService : ServiceBase
 
         db.UserBooks.Add(loan);
         await SaveAsync(db, "loan");
+        Logger.LogInformation("Loan {LoanId}: book {Isbn} to user {UserId}, due {DueDate}, by user {ActorId}",
+            loan.Id, isbn, userId, dueDate, ActorId);
         return loan;
     }
 
@@ -92,11 +95,12 @@ public class LoanService : ServiceBase
         var loan = await db.UserBooks.FindAsync(loanId) ?? throw NotFound<UserBook>(loanId);
 
         if (loan.ReturnDate != null)
-            throw new InvalidOperationException("This book has already been returned.");
+            throw new ServiceException("This book has already been returned.");
 
         loan.ReturnDate = Today;
         loan.Status = LoanStatus.Returned;
         await SaveAsync(db, "loan");
+        Logger.LogInformation("Loan {LoanId} returned, by user {ActorId}", loanId, ActorId);
     }
 
     // Marks active loans past their due date as overdue. Returns how many changed.
@@ -110,7 +114,10 @@ public class LoanService : ServiceBase
         foreach (var loan in late)
             loan.Status = LoanStatus.Overdue;
         if (late.Count > 0)
+        {
             await SaveAsync(db, "loan");
+            Logger.LogInformation("Marked {Count} loans as overdue", late.Count);
+        }
         return late.Count;
     }
 

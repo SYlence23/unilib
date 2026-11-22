@@ -65,7 +65,7 @@ public class LibraryServiceTests : IDisposable
     [InlineData("1000", "0", "Latitude")]
     public async Task Create_OutOfRange_Throws(string latitude, string longitude, string field)
     {
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+        var ex = await Assert.ThrowsAsync<ServiceException>(
             () => _libraries.CreateAsync(NewLibrary(D(latitude), D(longitude))));
 
         Assert.StartsWith($"{field} must be between", ex.Message);
@@ -79,7 +79,7 @@ public class LibraryServiceTests : IDisposable
     {
         var library = onlyLatitude ? NewLibrary(10m, null) : NewLibrary(null, 10m);
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _libraries.CreateAsync(library));
+        var ex = await Assert.ThrowsAsync<ServiceException>(() => _libraries.CreateAsync(library));
 
         Assert.Equal("Latitude and longitude must both be set or both be empty.", ex.Message);
     }
@@ -91,7 +91,7 @@ public class LibraryServiceTests : IDisposable
 
         var invalid = NewLibrary(91m, 20m);
         invalid.Id = created.Id;
-        await Assert.ThrowsAsync<InvalidOperationException>(() => _libraries.UpdateAsync(invalid));
+        await Assert.ThrowsAsync<ServiceException>(() => _libraries.UpdateAsync(invalid));
 
         var stored = await _libraries.GetByIdAsync(created.Id);
         Assert.Equal(10m, stored!.Latitude);

@@ -22,9 +22,17 @@ public class CategoryService : ServiceBase
         return await db.Categories.AsNoTracking().SingleOrDefaultAsync(c => c.Id == id);
     }
 
-    public Task<Category> CreateAsync(Category category) => AddEntityAsync(category);
+    public Task<Category> CreateAsync(Category category)
+    {
+        category.Name = Validation.Required(category.Name, "Category", Validation.CategoryLength);
+        return AddEntityAsync(category);
+    }
 
-    public Task UpdateAsync(Category category) => UpdateEntityAsync(category, category.Id);
+    public Task UpdateAsync(Category category)
+    {
+        category.Name = Validation.Required(category.Name, "Category", Validation.CategoryLength);
+        return UpdateEntityAsync(category, category.Id);
+    }
 
     public Task DeleteAsync(int id) => DeleteEntityAsync<Category>(id);
 }
