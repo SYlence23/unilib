@@ -12,6 +12,8 @@ public class ReservationService : ServiceBase
     public static readonly string LimitReachedMessage =
         $"Reservation limit reached ({LibraryRules.MaxOpenReservations} open requests).";
 
+    public const string AlreadyReservedMessage = "You have already reserved this book.";
+
     private readonly TimeProvider _time;
 
     // time: tests pass a fixed clock; the app uses the system clock.
@@ -60,12 +62,22 @@ public class ReservationService : ServiceBase
             throw NotFound<User>(userId);
         if (!await db.Books.AnyAsync(b => b.Isbn == isbn))
             throw NotFound<Book>(isbn);
-        var open = await db.Reservations.CountAsync(r => r.UserId == userId
-            && (r.Status == ReservationStatus.Pending || r.Status == ReservationStatus.Active));
-        if (open >= LibraryRules.MaxOpenReservations)
+        var openBooks = await db.Reservations
+            .Where(r => r.UserId == userId
+                && (r.Status == ReservationStatus.Pending || r.Status == ReservationStatus.Active))
+            .Select(r => r.BookId)
+            .ToListAsync();
+        if (openBooks.Count >= LibraryRules.MaxOpenReservations)
         {
-            Logger.LogInformation("Reservation refused for user {UserId}: {Open} open requests", userId, open);
+            Logger.LogInformation("Reservation refused for user {UserId}: {Open} open requests", userId, openBooks.Count);
             throw new ServiceException(LimitReachedMessage);
+        }
+        // The catalog checks this too, but only against the requests it loaded; a stale
+        // screen or a second window must not create a duplicate request.
+        if (openBooks.Contains(isbn))
+        {
+            Logger.LogInformation("Reservation refused for user {UserId}: book {Isbn} is already reserved", userId, isbn);
+            throw new ServiceException(AlreadyReservedMessage);
         }
 
         var reservation = new Reservation

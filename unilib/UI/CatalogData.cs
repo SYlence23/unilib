@@ -82,7 +82,7 @@ public sealed class CatalogData
     public async Task<string> ReserveAsync(int userId, Book book)
     {
         if (IsHeld(book.Isbn))
-            return "You have already reserved this book.";
+            return ReservationService.AlreadyReservedMessage;
         if (OpenReservations >= LibraryRules.MaxOpenReservations)
             return ReservationService.LimitReachedMessage;
 

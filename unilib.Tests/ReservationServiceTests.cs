@@ -57,7 +57,29 @@ public class ReservationServiceTests : IDisposable
         _db.AddReservation(_userId, "111", ReservationStatus.Completed, Today);
         _db.AddReservation(_db.AddUser("olena@uni.edu"), "111", ReservationStatus.Active, Today);
 
-        await _reservations.CreateAsync(_userId, "111");
+        _db.AddBook("222");
+        _db.AddBook("333");
+        await _reservations.CreateAsync(_userId, "222");
+        await _reservations.CreateAsync(_userId, "333");
+    }
+
+    [Theory]
+    [InlineData(ReservationStatus.Pending)]
+    [InlineData(ReservationStatus.Active)]
+    public async Task Create_SameBookAlreadyOpen_Throws(string status)
+    {
+        _db.AddReservation(_userId, "111", status, Today);
+
+        var ex = await Assert.ThrowsAsync<ServiceException>(() => _reservations.CreateAsync(_userId, "111"));
+        Assert.Equal(ReservationService.AlreadyReservedMessage, ex.Message);
+    }
+
+    [Fact]
+    public async Task Create_SameBookAfterClosedRequest_Succeeds()
+    {
+        _db.AddReservation(_userId, "111", ReservationStatus.Cancelled, Today);
+        _db.AddReservation(_userId, "111", ReservationStatus.Completed, Today);
+
         await _reservations.CreateAsync(_userId, "111");
     }
 
